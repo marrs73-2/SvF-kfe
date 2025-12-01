@@ -5,10 +5,9 @@ from sys  import float_info
 F_Arg_Type = ''            #  заплатка для ArgNorm для fNi_fon(X,Y) символ функции   Ni(X,Y)  = Ni_fon(X,Y) + fon
 
 
-DrawMode = 'Screen&File'
-LocalSolverName  = '/opt/scipopt911/bin/ipopt' # '/opt/solvers/bin/ipopt'
-SolverName       = '/opt/scipopt911/bin/ipopt' # '/opt/solvers/bin/ipopt'  # 3.14.09
-
+DrawMode = 'File'
+LocalSolverName  = 'docker run --rm -it -v $PWD:/workdir distcomp/solvers:latest ipopt'
+SolverName  = 'docker run --rm -it -v $PWD:/workdir distcomp/solvers:latest ipopt'
 
 feasibleSol = None          #  function feasibleSol(Peal) - перед оптимизацией
 OptMode = 'SvF'
@@ -20,7 +19,6 @@ max_workers = 3
 
 jobId_s = []
 maxJobs = 0
-
 
 ShowAll = True
 DrawFileName = ''
