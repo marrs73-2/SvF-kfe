@@ -102,9 +102,18 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
                 exit(-17)
 
             print('Start', pName )
+            # original_cwd = os.getcwd()
+            # os.chdir(tmpFileDir)
+            # print(f"Changed to directory: {os.getcwd()}")
+            print(SvF.SolverName + ' ' + tmpFileDir + pName_nl + " -AMPL" +
+                              " \"option_file_name=" + tmpFileDir + "peipopt.opt\"") # !!!!!!!!!!!!!!
             subprocess.check_call(SvF.SolverName + ' ' + tmpFileDir + pName_nl + " -AMPL" +
                               " \"option_file_name=" + tmpFileDir + "peipopt.opt\"", shell=True)
+            # subprocess.check_call(SvF.SolverName + ' ' + pName_nl + " -AMPL" +
+            #                   " \"option_file_name=" + "peipopt.opt\"", shell=True)
+            # os.chdir(original_cwd)
             return pName
+    
 
         if RunMo == 'S':                                        # RUN dist    #===== solve in parallel ===========
             SvF_resources = []                                                  #####   ABC   28/01/2023

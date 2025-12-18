@@ -343,6 +343,7 @@ def startStartModel () :
     Swr('\nSvF.Task = TaskClass()')
     Swr('Task = SvF.Task')
     Swr('SvF.mngF = \'' + SvF.mngF + '\'')
+    Swr('sys.path.append("' + SvF.path_SvF_Lib + '")')
 ## 30    Swr('SvF.Preproc = False')
 
 def endObjStartModel () :
