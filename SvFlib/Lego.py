@@ -90,6 +90,8 @@ class BaseFun (Tensor) :
         elif self.type == 'G':             self.type = 'gG'  # Там что-то не так
 #        elif self.type == 'Cycle':         self.type = 'gCycle'
         elif self.type == 'gCycle':        pass
+        elif self.type == 'Recursive':       self.type = 'gRecursive'
+        elif self.type == 'Mixed':       pass
         else :
             print ('Неизвестный тип функции   ', self.type)
             exit (-1)
@@ -1231,7 +1233,7 @@ class BaseFun (Tensor) :
 
 
     def ReadSol ( self, fName='', printL=0 ) :
-      if self.type == 'smbFun':  ##########################
+      if self.type not in ['smbFun', 'MixedFun']:  ##########################
           return
  #     print ('self.Task.Mng.Prefix',fName)
       Prefix = SvF.Prefix
@@ -2087,10 +2089,10 @@ class Fun (BaseFun) :
      #         return self.interpol ( 3, ar[0], ar[1], ar[2] )
 
     def Ftbl ( self, n ) :
-      if self.type[0] == 'g':      # 2407
-        argsNode = [(a.dat[n]-a.min)/a.step   for a in self.A]
+        if self.type[0] == 'g':      # 2407
+            argsNode = [(a.dat[n]-a.min)/a.step   for a in self.A]
  #       print (argsNode)
-        return self.interpolNode (argsNode)
+            return self.interpolNode (argsNode)
     """
     def interpol ( self, lev, X,Y=0,Z=0 ) :   # X,Y,Z  в шагах
         if self.param or not SvF.Use_var: gr = self.grd
@@ -2165,7 +2167,13 @@ class Fun (BaseFun) :
             else                 :  return  self.interpol ( lev-1, X,Y,Zi ) * (1-dZ) + self.interpol ( lev-1, X,Y,Zi+1 ) * dZ
 
         else :
-#            if self.dim == 1:  return self.gr[int(argNode[0])]
-#            if self.dim == 2:  return self.gr[int(argNode[0]),int(argNode[1])]
-#            if self.dim == 3:  return self.gr[int(argNode[0]),int(argNode[1]),int(argNode[2])]
+   #         print (argNode, gr[int(argNode[0]),int(argNode[1])] )
+#             if self.dim == 1:  return self.gr[int(argNode[0])]
+#             if self.dim == 2:
+#  #               print ('No', int(argNode[0]),int(argNode[1]),self.gr[int(argNode[0]),int(argNode[1])])
+#                 return self.gr[int(argNode[0]),int(argNode[1])]
+#             if self.dim == 3:  return self.gr[int(argNode[0]),int(argNode[1]),int(argNode[2])]
+#             else: 
             return self.gr[tuple(argNode)]
+
+

@@ -14,6 +14,9 @@ test/tmp/*
 TMP/
 test/tmp
 SvFlib/_START.py
+SvFlib/MakeModel_old.py
+SvFlib/SvF_Log.Out
+
 
 SvF_UserGuide28v01.docx.bak
 Цитировать.odt

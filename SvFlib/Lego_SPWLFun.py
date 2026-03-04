@@ -7,11 +7,12 @@ class SPWLFun (Fun) :
  #    def interpol(self, lev, X, Y=0, Z=0):  # X,Y,Z  в шагах
 
     def interpolNode(self, argNode, lev=1):  # argNode =[ X,Y,..]  в шагах
+        if lev == 1 :
+            lev = len(argNode) ## kfe added
         X = argNode[0]
         if self.param or not SvF.Use_var:           gr = self.grd
         else:                                       gr = self.var  # 29
         if lev == 2:
-
             if self.type == 'gSPWLi':  # 'G_ind':
                 def ind_0_1(x):
                     return 0.5 * x / py.sqrt(SvF.Epsilon + x ** 2) - 0.5 * (x - 1) / py.sqrt(
@@ -31,6 +32,7 @@ class SPWLFun (Fun) :
                                 + (gr[i, j + 1] * (1 - dX) + gr[i + 1, j + 1] * dX) * dY
                                 ) * ind_0_1(dX) * ind_0_1(dY)
                 return ret
+            
         if lev == 1:
             if self.type == 'gG':  # !!!! Сдвиг на КОНСТАНТУ !!!!!   Что это 2025.01
                 def η(x):

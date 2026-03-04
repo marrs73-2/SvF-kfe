@@ -47,6 +47,9 @@ def Factory (optFile):
 def makeNlFile ( Gr, stab_file ) :
             _, smap_id = Gr.write( stab_file, format=ProblemFormat.nl )#,  io_options={'symbolic_solver_labels': True})  # создаем стаб
             symbol_map = Gr.solutions.symbol_map[smap_id]
+            print(stab_file)
+            with open(f"{stab_file}.log.txt", "w") as f:
+                Gr.pprint(ostream=f)
             return symbol_map
 
 #def setMuToTeach (Gr, notTrainingSets = [] ) :                 #  notTrainingSets 1 - выбрасываем, 0 - берем

@@ -225,7 +225,7 @@ class smbFun (BaseFun) :
 
     def ComplDer2(self, bets):
         ret = 0
-        for d0 in range(self.dim) :
+        for d0 in range(self.dim):
             for d1 in range(d0, self.dim) :
                 if d0 == d1 :
                     ret += bets[d0] ** 2 * bets[d1] ** 2 * self.INT2D(d0,d1)

@@ -567,6 +567,74 @@ def make_smbFun(smbF, fun):
             if  fun.SymbolDiffer:  Write123('Hessian',   d0, d1)
     return
 
+def make_mixedFun(fun, f_name, dim, discr_str):
+    def simple_split(text):
+        parts = []
+        part = ""
+        depth = 0
+        
+        for ch in text:
+            if ch == '(':
+                depth += 1
+                part += ch
+            elif ch == ')':
+                depth -= 1
+                part += ch
+            elif ch == ',' and depth == 0:
+                parts.append(part.strip())
+                part = ""
+            else:
+                part += ch
+        
+        if part:
+            parts.append(part.strip())
+        
+        return parts
+
+    smb_discr_list = list()
+    grd_discr_list = list()
+    include_smb = True
+    include_pol = False # присутствует лишь одно из двух
+    include_fou = False
+
+    discr_list = simple_split(discr_str[1:-1])
+    for i, discr_method in enumerate(discr_list):
+        if discr_method in ['SPWL', 'SOS2']:
+            grd_discr_list.append([discr_method, i])
+        elif discr_method.startswith("Polynome"):
+            smb_discr_list.append([discr_method, i])
+            include_pol = True
+        elif discr_method.startswith("Fourier"):
+            smb_discr_list.append([discr_method, i])
+            include_fou = True            
+
+    if len(smb_discr_list) == 0:
+        # тут мы должны записать через переменные для сеточной функции
+        wr('\n    ' + f_name + '.var = py.Var ( ')
+        for di in range(dim):
+            wrs(f_name + '.A[' + str(di) + '].NodS,')
+        if dim == 0:  wrs('range (1), ')
+        wrs('domain=Reals')
+        # if not (Lbound is None and Ubound is None):
+        #     wrs(', bounds=(' + str(Lbound) + ',' + str(Ubound) + ')')
+        wrs(' )')
+
+        wr('    ' + f_name + '.gr =  ' + f_name + '.var')  # 25.10.18
+        wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
+
+    elif include_pol == True:
+         # генерация функции вычисления полинома от n переменных и его переменных?
+         make_smbFun( fun)
+    elif include_fou == True:
+         
+         # генерация функции вычисления многочлена Фурье от n переменных и его переменных?
+         pass
+
+    return 0
+
+    
+
+
 
 def WriteVarParam26 ( buf, param ) :
         # заменяем          на            значение
@@ -634,6 +702,8 @@ def WriteVarParam26 ( buf, param ) :
                 up_part = part.upper()
     #            print('PART:', part)
                 pars = parser ( part )
+                # to_logOut(str([u.part for u in pars.items])) #KFE_added)
+                #print("HEREEEEEE", str([u.part for u in pars.items]))
          #       pars.myprint()
 
      #           print ('PART:', part, part.find('\\inn') )
@@ -660,7 +730,7 @@ def WriteVarParam26 ( buf, param ) :
                     fun_args_str = ','.join(fun_args)
                     dim = len (fun_args)
                     if dim == 0 :   f_type = 'tensor'
-                    print (f_name, f_type, pars.Args(1), dop_args, fun_args, fun_args_str)
+                    print ("Function info: ", f_name, f_type, pars.Args(1), dop_args, fun_args, fun_args_str)
                     fun = Fun(pars.items[0].part ,fun_args, param, PolyPow )     # here  '('
                     print (fun.ReadFrom)
 
@@ -675,8 +745,10 @@ def WriteVarParam26 ( buf, param ) :
 
                 key, eq, val = getKeyFromBuf(keys, part)
                 print ('key, eq, val', key, eq, val)
-                if '=' == key and eq == '':
-                            smbFun = val
+                if '=' == key and eq == '': # KFE added
+                    if val[0] == "[": Type = "Mixed"
+                    else:
+                        smbFun = val
                 elif 'SymbolDiffer' == key and eq == '=':
                             SymbolDiffer = val;   fun.SymbolDiffer = val
                 elif part.find('Deriv1')  == key and eq == '=':
@@ -706,8 +778,14 @@ def WriteVarParam26 ( buf, param ) :
                             fun.PolyPow = PolyPow
                             fun.type = 'p'
                 elif 'Type' == key and eq == '=':
- #               elif part.find('Type')==0 :
-                            Type = val    #part.split('=')[1]
+                    if val.startswith('Recursive(') and val.endswith(')'): # added by KFE
+                        Type = 'Recursive' 
+                        inner_args = val[10:-1] 
+                        discr_types = [arg.strip() for arg in inner_args.split(',')]
+                        if len(discr_types) == 1:
+                            discr_types = [discr_types]
+                    else:
+                        Type = val
                 elif 'Period' == key and eq == '=':
     #            elif part.find('Period')==0 :
                             Period = val    #part.split('=')[1]
@@ -852,6 +930,10 @@ def WriteVarParam26 ( buf, param ) :
         if param == True : f_str += ', param='  + str(param)                #  добавление аргументов
         if PolyPow  != -1 and not ('Degree' in dop_args):   f_str += ', Degree='   + str(PolyPow)
         if Type     != '' and Type != 'Cycle' and not ('Type' in dop_args):     f_str += ', Type=\''   + Type+ '\''
+        if Type == 'Recursive': f_str += ', discr_types=' + str(discr_types) # added by KFE
+        if Type == 'Mixed':
+             
+            f_str += ', discr_str = "' + str(val) + '"' # added by KFE
         if Period   != '' and not ('Period' in dop_args):   f_str += ', Period='   + Period
         if Domain   != '' and not ('Domain' in dop_args):   f_str += ', Domain='   + Domain
         if ReadFrom != '' and not ('ReadFrom' in dop_args) and smbFun == '': f_str += ', ReadFrom=' + ReadFrom
@@ -868,6 +950,12 @@ def WriteVarParam26 ( buf, param ) :
 
         if   Type == 'Cycle' :    Swr (f_name+' = Cycle' + f_str)
         elif Type == 'SPWLi' or Type == 'SPWL' : Swr (f_name+' = SPWL' + f_str)
+        elif Type == 'Recursive' : 
+            to_logOut(f_name+' = Recursive' + f_str)
+            Swr (f_name+' = Recursive' + f_str) #### added by KFE
+        elif Type == 'Mixed' : 
+            to_logOut(f_name+' = Mixed' + f_str)
+            Swr (f_name+' = Mixed' + f_str) #### added by KFE
         elif smbFun != '' :     Swr (f_name+' = smb'+f_str)
         elif PolyPow < 0  :     Swr (f_name+' = '+f_str)
         else :                  Swr (f_name+' = p'+f_str)                                  #  pFun
@@ -897,6 +985,8 @@ def WriteVarParam26 ( buf, param ) :
         #        wr('    '+ f_name + '.gr =  ' + f_name + '.var')           #  25.10.18
          #       wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
 #            else:  # Set
+            elif Type == "Mixed":
+                 make_mixedFun(fun, f_name, dim, val)
             elif  smbFun == '':   #  Если не символьная
                     wr('\n    ' + f_name + '.var = py.Var ( ')
                     for di in range(dim):
@@ -910,9 +1000,9 @@ def WriteVarParam26 ( buf, param ) :
                         wrs(', bounds=(' + str(Lbound) + ',' + str(Ubound) + ')')
                     wrs(' )')
 #                    wrs(' initialize = ' + Finitialize + ' )')
-            if smbFun == '':  # Если не символьная
-                wr('    ' + f_name + '.gr =  ' + f_name + '.var')  # 25.10.18
-                wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
+
+                    wr('    ' + f_name + '.gr =  ' + f_name + '.var')  # 25.10.18
+                    wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
 
  #24           if PolyPow < 0:  # Set
     #            wr('    ' + f_name + '.InitByData()')

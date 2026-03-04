@@ -14,6 +14,8 @@ from MakeModel import *
 from Lego_pFun  import *
 from Lego_smbFun  import *
 from Lego_SPWLFun import *
+from Lego_RecursiveFun import *
+from Lego_MixedFun import *
 from Lego_CycleFun import *
 
 #import Lego
@@ -58,7 +60,7 @@ class TaskClass :
         self.Tbls    = []
         self.Objects = []
 #        self.Sets    = SvF.Sets
- #       self.Funs    = SvF.Funs     #  Проблеммы с Funs  м.б. в Pyoma
+ #       self.Funs    = SvF.Funs     #  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ Funs  пїЅ.пїЅ. пїЅ Pyoma
   #      self.Tbls    = SvF.Tbls
    #     self.Objects = SvF.Objects
         self.createGr  = None
