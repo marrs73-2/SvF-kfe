@@ -13,6 +13,7 @@ pyomo-everest/ssop/miscTest/
 test/tmp/*
 TMP/
 test/tmp
+SvFlib/_START.py
 
 SvF_UserGuide28v01.docx.bak
 Цитировать.odt
