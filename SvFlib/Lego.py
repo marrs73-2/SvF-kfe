@@ -156,13 +156,12 @@ class BaseFun (Tensor) :
 
     def Allocate_grd(self) :
         if self.type != 'p':  # не полином
-            Sizes = [a.Ub + 1 for a in self.A]
+            Sizes = (a.Ub + 1 for a in self.A)
             self.Allocate_tensor(Sizes)
         else:
             self.Allocate_tensor([self.sizeP])
 
         if self.param: self.InitByData()  # 29
-
 
     def Real_to_Node ( self, realArgs ) :    # реальные в координаты сетку [0, Ub]
         return [ (realArgs[i] - a.min) / a.step   for i, a in enumerate(self.A) ]
@@ -256,20 +255,20 @@ class BaseFun (Tensor) :
                 if np.isnan(self.V.dat[i]) or self.V.dat[i] == self.NDT:
                     if SvF.useNaN == False:
                         print('Rec', i, 'deleted')
-                        to_logOut('W:   Record  ' + str(i) + '  was deleted from data set of function   ' + self.V.name)
+                        to_logOut('WF:   Record  ' + str(i) + '  was deleted from data set of function   ' + self.V.name + ' valF=' + str(self.V.dat[i]))
                         continue
                 self.V.dat[self.NoR] = self.V.dat[i]
             OK = 1
             for a in self.A:
                 if a.dat is None: continue
-                if np.isnan(a.dat[i]): OK = 0; break
-                if a.dat[i] == self.NDT: OK = 0; break
-                if a.dat[i] < a.min   or   a.dat[i] > a.max:   OK = 0; break
+                if np.isnan(a.dat[i]): OK = 0; a_dat = a.dat[i];  break
+                if a.dat[i] == self.NDT: OK = 0; a_dat = a.dat[i]; break
+                if a.dat[i] < a.min   or   a.dat[i] > a.max:   OK = 0; a_dat = str(a.dat[i]) +' '+ str(a.min)+' '+str(a.max); break
 #                if a.dat[i] < 0   or   a.dat[i] > a.ma_mi :   OK = 0; break
                 a.dat[self.NoR] = a.dat[i]
             if  OK:  self.NoR += 1
             else :
-                to_logOut('W:   Record  ' + str(i) + '  was deleted from data set of function   ' + self.V.name)
+                to_logOut('WA:   Record  ' + str(i) + '  was deleted from data set of function   ' + self.V.name + ' valA=' + str(a_dat) )
                 print('Rec', i, 'deleted')
 
         if isnotNone(self.V.dat):  # resize
@@ -531,6 +530,7 @@ class BaseFun (Tensor) :
                 self.grd = new_grd
 #            elif self.dim == 3:
  #               self.grd = np.zeros((self.A[0].Ub + 1, self.A[1].Ub + 1, self.A[2].Ub + 1), np.float64)
+            self.gr = self.grd
         self.A = copy(As)
 
     def Normalization ( self, VarNormalization ) :
@@ -604,8 +604,8 @@ class BaseFun (Tensor) :
             return self.domain[ix,iy]
 
 
-
-    def onameFun(self):
+    """
+    def onameFun(self):                     ##  ??
             name = self.V.name
             if len(self.A) > 0:  name += '('
             #           print 'nnn', name, self.dim
@@ -616,6 +616,19 @@ class BaseFun (Tensor) :
             if len(self.A) > 0:  name = name + ')'
             #            print 'nameFun', name, len(self.A), '|'
             return name
+    """
+
+    def nameFun(self):                      ##  ??
+        #  name = self.name
+        name = self.V.name
+        if len(self.A) > 0:
+            name += '('
+            for ar in self.A:
+                if type(ar) == type('abc'):  name += ar + ','
+                else:                        name += ar.name + ','
+            name = name[0:-1]  # -1 убрать запятую
+            name += ')'
+        return name
 
     def Extrapolate (self, grd_start_from, incr = 0) :
         for i in range (iround(grd_start_from), self.A[0].Ub+1):
@@ -1232,7 +1245,7 @@ class BaseFun (Tensor) :
             print ("Can''t open file: ", fName)
             return False
       head = fi.readline().split()
-      print ("ReadSol from", fName,  head )
+#      print ("ReadSol from", fName,  head )
 ######################################################
       if head[0][0:4] == '#SvF' :    #New   бросил, не отладил...
          ver = head[0].split('_')
@@ -2152,10 +2165,7 @@ class Fun (BaseFun) :
             else                 :  return  self.interpol ( lev-1, X,Y,Zi ) * (1-dZ) + self.interpol ( lev-1, X,Y,Zi+1 ) * dZ
 
         else :
-   #         print (argNode, gr[int(argNode[0]),int(argNode[1])] )
-            if self.dim == 1:  return self.gr[int(argNode[0])]
-            if self.dim == 2:
- #               print ('No', int(argNode[0]),int(argNode[1]),self.gr[int(argNode[0]),int(argNode[1])])
-                return self.gr[int(argNode[0]),int(argNode[1])]
-            if self.dim == 3:  return self.gr[int(argNode[0]),int(argNode[1]),int(argNode[2])]
-
+#            if self.dim == 1:  return self.gr[int(argNode[0])]
+#            if self.dim == 2:  return self.gr[int(argNode[0]),int(argNode[1])]
+#            if self.dim == 3:  return self.gr[int(argNode[0]),int(argNode[1]),int(argNode[2])]
+            return self.gr[tuple(argNode)]

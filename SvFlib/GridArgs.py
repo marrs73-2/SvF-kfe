@@ -16,8 +16,11 @@ def  getName ( obj ) :
         if type (obj) == type ('abc') : return obj
         return obj.name
 
-                               #  Для интегрирования
-def myrange(mi_, ma_, st):  # mi <= ret  <= ma   ret[0] = mi  ret[-1] = ma  возможно округление 1е-10. Последний шаг - остаток.
+          #  Для интегрирования  # mi <= ret  <= ma   ret[0] = mi  ret[-1] = ma  возможно округление 1е-10. Последний шаг - остаток.
+def myrange ( mi_ : float,
+              ma_ : float,
+              st : float
+            ) -> list:
         if mi_ > ma_:  return []    # 08/07/2021
         mi = float(mi_)        #    conflict    float <-> np.float64   ???????????????????  #########################
         ma = float(ma_)
@@ -35,6 +38,7 @@ def myrange(mi_, ma_, st):  # mi <= ret  <= ma   ret[0] = mi  ret[-1] = ma  во
         else:
             ret.append(ma)  # приращение неполное !
         return ret
+
 
 class Set (Object):
     def __init__ (self, nameOrGrid, gmin=np.nan, gmax=np.nan, step=-50, ind = '', Data = '') :
@@ -67,7 +71,7 @@ class Set (Object):
 
         if self.ind == '': self.ind = '_i' + self.name
 
-        print('SET init by', self.name, self.min, self.max, self.step, self.ind, self.fld_name, self.dat)
+#        print('SET init by', self.name, self.min, self.max, self.step, self.ind, self.fld_name, self.dat)
 
         if isfloat(self.ind): print(self.name, '****index must be a name:', self.ind);  exit(-1)  #  ???
 
@@ -88,15 +92,21 @@ class Set (Object):
         self.mFlNodS  = 0
         self.FlNodSm  = 0
         self.ma_mi    = 0
+        self.middle   = 0
 
         self.Init()
 
     def Init(self):
         from Table import getCurrentFieldData
         if self.ind is None: self.ind = '_i' + self.name
-        if self.step < 0: self.step = (self.max - self.min) / float(-self.step);
-        self.ma_mi = self.max - self.min
+        if self.step < 0:
+            self.step = (self.max - self.min) / float(-self.step);
+    #        step = (self.max - self.min) / float(-self.step);
+     #       if self.min + step * (-self.step) > self.max: step *= (1-1e-10)      # 26.02.01  чтоб не выезжать за мин макс
+      #      self.step = step
         self.set_Ub_max()
+        self.ma_mi = self.max - self.min
+        self.middle = (self.max + self.min)*.5
         self.makeSets()
         if self.dat is None:
             self.dat = getCurrentFieldData(self.fld_name)
@@ -109,6 +119,7 @@ class Set (Object):
             if abs(floatUb - (self.Ub - 1)) / self.Ub < 1e-10:  self.Ub -= 1  ###################  Округление Уточнить -13 #######
         old_max = self.max
         self.max = self.min + self.Ub * self.step
+    #    print ('PPPPPPPPPPPP', self.max, old_max, SvF.useNaN)
         if self.max > old_max :  print (self.name+'.max был увеличен c', old_max, ' до ', self.max)
 
     def makeSets  (self) :
@@ -120,6 +131,7 @@ class Set (Object):
         self.mmNodS  = range(2, self.Ub + 1)
         self.Val = []
         for i in self.NodS : self.Val.append ( ( self.min*(self.Ub-i) + self.max*i ) / float(self.Ub) )
+        self.Val = tuple(self.Val)
 #        for i in self.NodS : self.Val.append ( self.min*((float(self.Ub)-i)/float(self.Ub)) +self.max*(i/float(self.Ub)) )
         self.FlNodS   = self.Val                 # myrange(self.min,   self.max,    self.step)
         self.mFlNodSm = self.FlNodS[1:-1]         # myrange(self.min+self.step, self.max-self.step, self.step)
