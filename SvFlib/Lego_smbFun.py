@@ -4,6 +4,7 @@ from Lego import *
 import sympy as sy
 from itertools import combinations_with_replacement
 
+
 class smbFun (BaseFun) :
     def __init__ (self, Vname='',  As=[], param=False, Degree=-1,  Finitialize = 0, DataReadFrom = '',Data=[], Type='smbFun',
                           Domain = None, SymbolInteg=False, SymbolDiffer =False, Deriv1=False, ArgNorm =True) :
@@ -23,7 +24,7 @@ class smbFun (BaseFun) :
         self.SymbolInteg  = SymbolInteg
         self.SymbolDiffer = SymbolDiffer
         self.Deriv1 = Deriv1
-#        self.ArgNorm = ArgNorm
+#       self.ArgNorm = ArgNorm
 
 
     def calcNDTparam(self) :

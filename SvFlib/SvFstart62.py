@@ -251,7 +251,6 @@ def get_sigCV( Penal, itera ):
         Grd_to_Var()
 #        co.Use_var = False       # 29
         setUse_var(False)  # 25.10
-
         for fu in Task.Funs :  fu.CVresult = []
 
         if itera <= 0 : printS (' Load on Start ');   printMSD()

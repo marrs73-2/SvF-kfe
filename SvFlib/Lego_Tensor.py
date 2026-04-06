@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 from __future__ import division
 from Lego_Tools  import *
+import traceback
 
 class Tensor (Object) :
     def __init__ (self,
@@ -56,10 +57,30 @@ class Tensor (Object) :
             self.gr = self.grd
 
     def F ( self, ij ) :
-          if self.dim == 0:                           #  31
-                return self.gr[0]
-          elif self.dim == 1:
-                return self.gr[ij[0]]
+        #print(f" SvF.Use_var = {SvF.Use_var}")
+        if self.dim == 0:                           #  31
+            res = self.gr[0] 
+        elif self.dim == 1:
+        #    print("Возвращаемое значение!!! = ", self.gr[ij[0]]) # Возвращаемое значение.TYPE!!! =  <class 'pyomo.core.base.var.VarData'>, self.gr[ij].value = None
+        #    print("Возвращаемое значение.Val!!! = ", self.gr[ij[0]].value)
+            
+            # print("Возвращаемое значение!!! = ", self.gr[ij[0]]) # Возвращаемое значение.TYPE!!! =  <class 'pyomo.core.base.var.VarData'>, self.gr[ij].value = None
+            # print("Возвращаемое значение.Val!!! = ", self.gr[ij[0]].value)
+            res = self.gr[ij[0]] #  return self.gr[ij[0]]
+        
+        else:
+            print("gr type", type(self.gr))
+            print("Возвращаемое значение!!! = ", self.gr[tuple(ij)]) # Возвращаемое значение.TYPE!!! =  <class 'pyomo.core.base.var.VarData'>, self.gr[ij].value = None
+            # print("Возвращаемое значение.Val!!! = ", self.gr[ij].value)
+            res = self.gr[tuple(ij)]  # kfe_added
+
+        if res is None:
+            print("!!! WARNING: result is None !!!")
+            traceback.print_stack()
+        return res
+            
+        #   elif self.dim == 1:
+        #         return self.gr[ij][0]
 
     def nameFun(self):
             name = self.name

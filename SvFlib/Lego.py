@@ -91,7 +91,7 @@ class BaseFun (Tensor) :
 #        elif self.type == 'Cycle':         self.type = 'gCycle'
         elif self.type == 'gCycle':        pass
         elif self.type == 'Recursive':       self.type = 'gRecursive'
-        elif self.type == 'Mixed':       pass
+        elif self.type == 'Mixed':       self.type = 'gMixed'
         else :
             print ('Неизвестный тип функции   ', self.type)
             exit (-1)
@@ -1233,7 +1233,7 @@ class BaseFun (Tensor) :
 
 
     def ReadSol ( self, fName='', printL=0 ) :
-      if self.type not in ['smbFun', 'MixedFun']:  ##########################
+      if self.type in ['smbFun', 'MixedFun']:  ##########################
           return
  #     print ('self.Task.Mng.Prefix',fName)
       Prefix = SvF.Prefix

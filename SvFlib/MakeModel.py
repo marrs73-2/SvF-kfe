@@ -567,7 +567,12 @@ def make_smbFun(smbF, fun):
             if  fun.SymbolDiffer:  Write123('Hessian',   d0, d1)
     return
 
-def make_mixedFun(fun, f_name, dim, discr_str):
+def make_mixedFun(fun, f_name, dim, discr_str): # kfe_added
+    """
+    синтаксис обработки создания полинома:
+    [Polynome(6, 3), Polynome(6, 4)] -> Polynome(2, 6, [3, 4]) - кол-во переменных, степень, макс. степени по переменным;
+    [Polynome(6), Polynome(6)] -> Polynome(2, 6) = Polynome(2, 6, [6, 6]) 
+    """
     def simple_split(text):
         parts = []
         part = ""
@@ -590,17 +595,45 @@ def make_mixedFun(fun, f_name, dim, discr_str):
             parts.append(part.strip())
         
         return parts
+    
+    def parse_func_args(text):
+        """
+        Парсит строку вида: 
+        - "Spwl(6, 10)" -> ("Spwl", ["6", "10"])
+        - "Spwl()" -> ("Spwl", [])
+        - "Pwl(1, 5)" -> ("Pwl", ["1", "5"])
+        """
+        text = text.strip()
+        
+        # Ищем первую открывающую скобку
+        name_end = text.find('(')
+        
+        # Если скобок нет
+        if name_end == -1:
+            return text, []
+        
+        # Имя функции - часть до скобки
+        func_name = text[:name_end].strip()
+        
+        # Часть внутри скобок (убираем последнюю закрывающую скобку)
+        args_text = text[name_end+1:-1].strip() if text.endswith(')') else text[name_end+1:]
+        
+        # Разбираем аргументы с учетом вложенности
+        args = args_text.split(",")
+        
+        return func_name, args
 
     smb_discr_list = list()
     grd_discr_list = list()
-    include_smb = True
     include_pol = False # присутствует лишь одно из двух
     include_fou = False
+    grd_axis_numbs = list()
 
     discr_list = simple_split(discr_str[1:-1])
     for i, discr_method in enumerate(discr_list):
-        if discr_method in ['SPWL', 'SOS2']:
+        if discr_method.startswith("SPWL") or discr_method.startswith("Mesh") or discr_method.startswith("SOS"):
             grd_discr_list.append([discr_method, i])
+            grd_axis_numbs.append(i) 
         elif discr_method.startswith("Polynome"):
             smb_discr_list.append([discr_method, i])
             include_pol = True
@@ -623,18 +656,168 @@ def make_mixedFun(fun, f_name, dim, discr_str):
         wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
 
     elif include_pol == True:
-         # генерация функции вычисления полинома от n переменных и его переменных?
-         make_smbFun( fun)
+        # генерация функции вычисления полинома от n переменных и его переменных?
+
+        arg_list = list()
+        for i in [_[0] for _ in smb_discr_list]:
+            arg_list.append(parse_func_args(i)[1])
+        print("ARG_LIST", arg_list)
+
+        var_num = len(arg_list)
+        degree = int(arg_list[0][0])
+        for i in arg_list:
+             if int(i[0]) != degree:
+                  raise ValueError(f"Несовпадают степени многочленов {degree} и {i[0]}")
+
+        degree_list = list()
+        if len(arg_list[0]) == 1:
+             degree_list = [int(degree) for i in range(var_num)]
+        else:
+             for i in arg_list:
+                degree_list.append(int(i[1]))
+
+        coef = "c_f"
+        #print(f"fun.A: {fun.A[0].name}")  ### fun.A = ['X', 'V'] ????????????????????????/
+        grd_sizes_aux = [el for i, el in enumerate(fun.A) if i in grd_axis_numbs]
+        var_names_aux = [el for i, el in enumerate(fun.A) if i not in grd_axis_numbs]
+        print("HEREEEEEEEEEEEEEEEEEEEEEe", grd_axis_numbs, grd_sizes_aux)
+        if grd_sizes_aux: 
+            coef_num = ', '.join([i+".Ub+1" for i in grd_sizes_aux])+f", {count_coef(degree, degree_list)}"
+        else:
+            coef_num = f"{count_coef(degree, degree_list)}"
+        if getFun (coef) is None :         #  coef  is not defined
+            wr_text = coef + '[' + coef_num + ']'
+            if fun.ReadFrom !='':
+                if fun.ReadFrom == '*': wr_text += ";"+' << ' + coef + '.sol'
+                else : wr_text += ";"+' << ' + fun.ReadFrom
+    #        WriteVarParam26 ( coef + '[' + str(coef_num) + ']' , fun.param )     #False)  25.10.19
+            WriteVarParam26 ( wr_text , fun.param )     #False)  25.10.19
+            to_logOut('Var:  ' + coef + '[' + str(coef_num) + '] was added')
+
+        smb_exp = generate_polynomial_expression(var_num, degree, degree_list, var_names_aux, len(grd_sizes_aux))
+
+        def Write123 (f_name, d0=0, d1=0):
+            if f_name == 'Deriv1':
+                f_name = 'Deriv1_'
+                Swr('def ' + fun.name + '_' + f_name +str(d0) + '(Args, coords) :')
+            else :
+                Swr('def ' + fun.name + '_' + f_name +str(d0)+str(d1) + '(Args, coords) :')
+            #Swr(f"   print(f'coords={{coords}}')")
+            for na, a in enumerate (var_names_aux) :
+                Swr('   ' + a + ' = Args['+str(na)+']')
+            for i in range(len(grd_sizes_aux)):
+                Swr(f"   i{i} = coords[{i}]")
+
+            f_txt = add_py_to_fun( smb_exp )                                    # добавляем к функциям py.
+    #        print (fun.ArgNorm, type(fun.ArgNorm) )
+    #       1/0
+            if fun.ArgNorm:    # заплатка для ArgNorm для fNi_fon(X,Y) символ функции   Ni(X,Y)  = Ni_fon(X,Y) + fon
+                Swr('   SvF.F_Arg_Type = "N"')
+            Swr('   ret = ' + f_txt)
+            if fun.ArgNorm:    # заплатка для ArgNorm для fNi_fon(X,Y) символ функции   Ni(X,Y)  = Ni_fon(X,Y) + fon
+                Swr('   SvF.F_Arg_Type = ""')
+            Swr('   return ret')
+            if   f_name == 'pre_smbF' :
+                Swr(fun.name + '.' + f_name + ' = ' + fun.name + '_' + f_name +str(d0)+str(d1) )
+
+    #      print ('AA', fun.ArgNorm)
+    #     1/0
+
+        Write123('pre_smbF')
+
     elif include_fou == True:
          
-         # генерация функции вычисления многочлена Фурье от n переменных и его переменных?
-         pass
+        # генерация функции вычисления многочлена Фурье от n переменных и его переменных?
+        pass
 
     return 0
 
+def count_coef(degree, degree_list): # kfe_added
+    """
+    Подсчитывает количество коэффициентов полинома с двумя ограничениями:
+    - степень по каждой переменной <= max_var_degrees[i]
+    - суммарная степень <= max_total_degree
     
+    Параметры:
+        max_var_degrees (list/tuple): максимальные степени по каждой переменной
+        max_total_degree (int): максимальная суммарная степень
+        
+    Возвращает:
+        int: количество коэффициентов
+    """
+    dim = len(degree_list)
+    count = 0
+    
+    # Перебираем все возможные комбинации степеней
+    ranges = [range(deg + 1) for deg in degree_list]
+    for powers in product(*ranges):
+        if sum(powers) <= degree:
+            count += 1
+    
+    return count
+    
+from itertools import product
+
+def generate_polynomial_expression(dim, degree, degree_list, var_names=None, grd_dim=None): # kfe_added
+    print(f"dim = {dim}, degree = {degree}, degree_list = {degree_list}")
+
+    def generate_monomials(degree, degree_list):
+        """
+        Генерирует все мультииндексы мономов с двумя ограничениями
+        
+        Возвращает:
+            list: список кортежей степеней, отсортированный по суммарной степени
+                и лексикографически
+        """
+        monomials = []
+        
+        ranges = [range(deg + 1) for deg in degree_list]
+        for powers in product(*ranges):
+            if sum(powers) <= degree:
+                monomials.append(powers)
+        
+        # Сортируем: сначала по суммарной степени, потом лексикографически
+        monomials.sort(key=lambda p: (sum(p), p))
+        return monomials
+
+    def generate_polynomial_expression(degree, degree_list, var_names, grd_dim):
+        """
+        Генерирует строку с выражением полинома
+        """
+        if var_names is None:
+            var_names = [f"x{i+1}" for i in range(dim)]
 
 
+        coeff_format="fc_f("
+        for i in range(grd_dim):
+             coeff_format += f"i{i}, "
+        coeff_format += "{})"
+        
+        monomials = generate_monomials(degree, degree_list)
+        terms = []
+        
+        for idx, powers in enumerate(monomials):
+            coeff = coeff_format.format(idx)
+            
+            if all(p == 0 for p in powers):
+                terms.append(coeff)
+                continue
+            
+            var_part = []
+            for var, power in zip(var_names, powers):
+                if power == 0:
+                    continue
+                elif power == 1:
+                    var_part.append(var)
+                else:
+                    var_part.append(f"{var}**{power}")
+            
+            term = coeff + "*" + "*".join(var_part)
+            terms.append(term)
+        
+        return " + ".join(terms)
+    
+    return generate_polynomial_expression(degree, degree_list, var_names, grd_dim)
 
 def WriteVarParam26 ( buf, param ) :
         # заменяем          на            значение
@@ -967,6 +1150,7 @@ def WriteVarParam26 ( buf, param ) :
         if f_type == 'tensor' :
             if   dim==1 : fun_args_str = 'i'
             elif dim==2 : fun_args_str = 'i,j'
+            elif dim==3 : fun_args_str = 'i,j,k'
 
         def_part = 'def ' + SvF.funPrefix + f_name + '(' + fun_args_str + ') : '    # def fE (t) : return E.F([t])
         ret_part = 'return ' + f_name + '.F([' + fun_args_str + '])'
