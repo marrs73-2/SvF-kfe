@@ -69,10 +69,10 @@ class Tensor (Object) :
             res = self.gr[ij[0]] #  return self.gr[ij[0]]
         
         else:
-            print("gr type", type(self.gr))
-            print("Возвращаемое значение!!! = ", self.gr[tuple(ij)]) # Возвращаемое значение.TYPE!!! =  <class 'pyomo.core.base.var.VarData'>, self.gr[ij].value = None
+            #print("gr type", type(self.gr))
+            #print("Возвращаемое значение!!! = ", self.gr[tuple(ij)]) # Возвращаемое значение.TYPE!!! =  <class 'pyomo.core.base.var.VarData'>, self.gr[ij].value = None
             # print("Возвращаемое значение.Val!!! = ", self.gr[ij].value)
-            res = self.gr[tuple(ij)]  # kfe_added
+            res = self.gr[tuple(int(i) for i in ij)]  # kfe_added
 
         if res is None:
             print("!!! WARNING: result is None !!!")

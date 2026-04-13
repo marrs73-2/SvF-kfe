@@ -69,7 +69,7 @@ class MixedFun (smb.smbFun) :
         self.SymbolInteg=False
         self.SymbolDiffer =False
         self.Deriv1=False
-        self.do_print = True 
+        self.do_print = True
         self.do_print_ext = False
         self.ArgNorm = True
 
@@ -82,6 +82,7 @@ class MixedFun (smb.smbFun) :
         self.pre_smbF = None
         self.smbF = self.complex_smbF
         self.DERIV2 = self.DERIV2_mine
+        self.F = self.F_mine
         self.Fijk = self.Fijk_mine
         self.var_to_grd = self.var_to_grd_mine
         self.grd_norm = "Node" # "Node" or "Norm01"
@@ -144,7 +145,7 @@ class MixedFun (smb.smbFun) :
             Параметр сглаживания
         """
         #print(x_points)
-        print(f"Внутри SPWL_discr с x_eval = {x_eval}\n")       
+        if self.do_print: print(f"Внутри SPWL_discr с x_eval = {x_eval}\n")       
         epsilon = float(epsilon)
         step = 1
         A_prev = 0
@@ -196,8 +197,10 @@ class MixedFun (smb.smbFun) :
     @staticmethod
     def _Mesh_discr(x_points, y_points, x_eval): # для сетки, нормированной по узлам, Node
         # Находим интервал
-        x_i = int(floor ( x_eval ))
-        print(f"В mesh x_eval = {x_eval}")
+        x_i = x_points[0]
+        x_i1 = x_points[1]
+
+        # print(f"В mesh x_eval = {x_eval}")
         if x_i <= 0: 
             return y_points[0]
     
@@ -205,8 +208,7 @@ class MixedFun (smb.smbFun) :
             return y_points[len(x_points)-1]
         
         # if x_i == len(x_points)-2: x_i = x_i - 1
-        x_i1 = x_i + 1
-        print(f"x_i = {x_i}", f"x_i1 = {x_i1}")
+        #print(f"x_i = {x_i}", f"x_i1 = {x_i1}")
         # Вычисляем веса для двух соседних точек 
         step = 1
         lambda_i = (x_i1 - x_eval) / step  # вес для i-й точки
@@ -247,13 +249,15 @@ class MixedFun (smb.smbFun) :
     #     return value
     
 
-    def interpolNode ( self, argNode, lev=None):
-        # изначально и вправду подаётся lev=None
+    def interpoleNode ( self, argNode, lev=None, to_Node=False):
         if lev is None :
-            #print(self.A[0].Val, self.A[1].Val)
-            #print(self.A[0].dat)
             lev = len(self.grd_discr_list)
-            argNode1 = copy(argNode)
+
+            # приведение сеточной части координат к узлам
+            if to_Node == True: 
+                argNode1 = self.real_to_normalized(copy(argNode), mode_grd="Node", mode_smb="Real")
+            else:
+                argNode1 = copy(argNode)
 
         else:
             argNode1 = copy(argNode)
@@ -276,9 +280,15 @@ class MixedFun (smb.smbFun) :
                 print(f"На этапе {lev} вызывается {discr_func.__name__} c аргументами {extra_args}", "argNode:") # debug
                 [print(argNode1[i]) for i in range(len(argNode1))]
 
-            args_list = [list(self.A[axis_num].NodS), 
-                        [self.interpolNode(argNode1[:axis_num] + [i] + argNode1[axis_num+1:], lev-1) for i in self.A[axis_num].NodS], 
-                        argNode1[axis_num]]
+            if method_name == "Mesh":
+                index = argNode[axis_num]
+                args_list = [[self.A[axis_num].Val[int(floor(index))], self.A[axis_num].Val[int(ceil(index))]], 
+                            [self.interpoleNode(argNode1[:axis_num] + [i] + argNode1[axis_num+1:], lev-1) for i in [int(floor(index)), int(ceil(index))]], 
+                            argNode1[axis_num]]
+            else:
+                args_list = [list(self.A[axis_num].NodS), 
+                            [self.interpoleNode(argNode1[:axis_num] + [i] + argNode1[axis_num+1:], lev-1) for i in self.A[axis_num].NodS], 
+                            argNode1[axis_num]]
             # args_list = [self.A[axis_num], [self.interpolNode([i] + indices, lev-1) 
             #                                for i in self.A[axis_num].NodS], argNode1[axis_num]]
             if extra_args: args_list.extend(extra_args)
@@ -296,14 +306,14 @@ class MixedFun (smb.smbFun) :
             return ret
         
         else :
-            # print(f"lev={lev}", f"Node={argNode}")
-            if self.do_print_ext: print(f"В interpole на этапе {lev} подставляется значение", "argNode:", end=' ') # debug
-            #print(f"lev={lev}", f"Node={argNode}")
             if self.do_print_ext:
+                print(f"В interpole на этапе {lev} подставляется значение", "argNode:", end=' ') # debug
                 print("[", end='')
                 [print(argNode1[i], end=',') for i in range(len(argNode1))]
                 print("]\n", end='')
+
             return self.fetch_value(argNode1)
+
 
     def fetch_value(self, argNode):
         if self.include_smb == False:
@@ -316,6 +326,7 @@ class MixedFun (smb.smbFun) :
             # else:
             #     self.smbF(smb_cords, [])
 
+
     def distribute_args(self, argNode):
         smb_coords = [argNode[_] for _ in self.smb_axis]
         grd_coords = [argNode[_] for _ in self.grd_axis]
@@ -325,27 +336,34 @@ class MixedFun (smb.smbFun) :
         #if self.do_print: print(f"grd_coords = {grd_coords}, smb_coords = {smb_coords}")
         return grd_coords, smb_coords
          
+
     def complex_smbF(self, argNode, flag="do"):
         if self.include_smb == False:
             caller_name = inspect.currentframe().f_back.f_code.co_name
-            print(f"E_pre_smbF00 вызвана из: {caller_name}()")
-            argNode = self.normalized_grd_to_node(argNode, flag)
-            print(f"argNode = {argNode}, type = {type(argNode)}")
+            if self.do_print: print(f"E_pre_smbF00 вызвана из: {caller_name}()")
+            #argNode = self.normalized_grd_to_node(argNode, flag)
+            if self.do_print: print(f"argNode = {argNode}, type = {type(argNode)}")
             return self.gr[tuple(argNode)]
         else:
             grd_coords, smb_coords = self.distribute_args(argNode)
             caller_name = inspect.currentframe().f_back.f_code.co_name
-            print(f"E_pre_smbF00 вызвана из: {caller_name}()")
+            if self.do_print: print(f"E_pre_smbF00 вызвана из: {caller_name}()")
             if self.include_grd == True:
-                grd_coords = self.normalized_grd_to_node(grd_coords, flag)
+                pass
+                #grd_coords = self.normalized_grd_to_node(grd_coords, flag)
 
             return self.pre_smbF(smb_coords, tuple(grd_coords))
-    
-    def Ftbl ( self, n ) : # пока что случай для исключительно символьных функций
-        argNode = self.real_to_normalized([a.dat[n] for a in self.A])
+
+
+    def Ftbl ( self, n ) : 
+        caller_name = inspect.currentframe().f_back.f_code.co_name
+        if self.do_print: print(f"E_pre_smbF00 вызвана из: {caller_name}()")
+        argNode = [a.dat[n] for a in self.A]
+        if self.do_print: print('In Ftbl: n and argNode: ', n, argNode)
+        argNode = self.real_to_normalized(argNode)
         if self.do_print: print('In Ftbl: n and argNode: ', n, argNode)
         if self.include_grd == False: return self.smbF(argNode)
-        else: return self.interpolNode(argNode)
+        else: return self.interpoleNode(argNode)
     
 #     def F ( self, ArS_real ) :  #   real args, по идее ненужный метод
 #         print("F evoked "*5) # не бывает такого, видимо 0_0
@@ -354,51 +372,93 @@ class MixedFun (smb.smbFun) :
 #     #    SvF.F_Arg_Type = ''
 #         return ret
     
-    def real_to_normalized ( self, ArS_real ) : 
+
+    def real_to_normalized ( self, ArS_real, mode_grd=None, mode_smb=None) : 
         new_ArS = list() 
+        if mode_grd == None: mode_grd = self.grd_norm
+        if mode_smb == None: mode_smb = self.smb_norm
+
         for i, el in enumerate(ArS_real):
             if i in self.grd_axis:
-                if self.grd_norm == "Norm01":
+                if mode_grd == "Norm01":
                     new_ArS.append((el-self.A[i].min)/self.A[i].ma_mi)
-                elif self.grd_norm == "Node":
+                elif mode_grd == "Node":
                     new_ArS.append((el-self.A[i].min)/self.A[i].step) 
+                elif mode_grd == "Real":
+                    new_ArS.append(el)
                 else:
                     print("[WARNING] No normalization for grd")
                     new_ArS.append(el)
             else:
-                if self.smb_norm == "Norm01":
+                if mode_smb == "Norm01":
                     new_ArS.append((el-self.A[i].min)/self.A[i].ma_mi) 
-                elif self.smb_norm == "Node":
+                elif mode_smb == "Node":
                     new_ArS.append((el-self.A[i].min)/self.A[i].step)   
+                elif mode_smb == "Real":
+                    new_ArS.append(el)
                 else:
                     print("[WARNING] No normalization for smb")
                     new_ArS.append(el)     
 
         return new_ArS
     
+
+    def node_to_normalized ( self, ArS_real, mode_grd=None, mode_smb=None) : 
+        new_ArS = list() 
+        if mode_grd == None: mode_grd = self.grd_norm
+        if mode_smb == None: mode_smb = self.smb_norm
+
+        for i, el in enumerate(ArS_real):
+            if i in self.grd_axis:
+                if mode_grd == "Norm01":
+                    new_ArS.append(el*self.A[i].step/self.A[i].ma_mi)
+                elif mode_grd == "Node":
+                    pass
+                elif mode_grd == "Real":
+                    new_ArS.append((el + self.A[i].min)*self.A[i].step)
+                else:
+                    print("[WARNING] No normalization for grd")
+                    new_ArS.append(el)
+            else:
+                if mode_smb == "Norm01":
+                    new_ArS.append(el*self.A[i].step/self.A[i].ma_mi)
+                elif mode_smb == "Node":
+                    pass
+                elif mode_smb == "Real":
+                    new_ArS.append((el + self.A[i].min)*self.A[i].step)
+                else:
+                    print("[WARNING] No normalization for smb")
+                    new_ArS.append(el)     
+
+        return new_ArS
+    
+
     def normalized_grd_to_node ( self, args, flag) : 
         new_args = list(copy(args))
-        print("was, ", new_args)
+        if self.do_print: print("was, ", new_args)
         #if self.grd_norm == "Norm01" and flag == "do":
         if flag == "do":
             for i, el in enumerate(args):
-                print("Внутри обратной нормировки, step = ", self.A[self.grd_axis[i]].step)
+                if self.do_print: print("Внутри обратной нормировки, step = ", self.A[self.grd_axis[i]].step)
                 new_args[i] = el / self.A[self.grd_axis[i]].step * self.A[self.grd_axis[i]].ma_mi
                 #print("step, ", self.A[self.grd_axis[i]].step)
-                if abs(round(new_args[i]) - new_args[i]) < 0.01: new_args[i] = round(new_args[i])
+                #if abs(round(new_args[i]) - new_args[i]) < 0.01: new_args[i] = round(new_args[i]) ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
 
-        new_args = [int(i) for i in new_args]
-        print("became, ", new_args)
+        # new_args = [int(i) for i in new_args]   ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
+        if self.do_print: print("became, ", new_args)
         return new_args
 
         # if self.ArgNorm  :  return  [(ArS_real[i]-a.min)/a.ma_mi for i, a in enumerate(self.A)]
         # else                    :  return ArS_real
 
+
     def Fijk_mine ( self, ijk ) :  # считает значение в узле с данными из таблицы по индексам
         arg_real = [ a.Val[ijk[ia]] for ia, a in enumerate (self.A) ]
-        print(f"arg_real = {arg_real}, arg_normalized = {self.real_to_normalized(arg_real)}")
-        print(self.smbF( self.real_to_normalized(arg_real), flag="don't") + self.V.avr )
-        return self.smbF( self.real_to_normalized(arg_real), flag="don't") + self.V.avr    # gr = self.grd
+        if self.do_print: print(f"arg_real = {arg_real}, arg_normalized = {self.real_to_normalized(arg_real)}")
+        ret = self.interpoleNode(self.real_to_normalized(arg_real))
+        if self.do_print: print(ret + self.V.avr) 
+        return ret + self.V.avr    # gr = self.grd
+
 
     def var_to_grd_mine (self) :
             print("--- var_to_grd evoked")
@@ -410,32 +470,51 @@ class MixedFun (smb.smbFun) :
                     for j in range(self.Sizes[1]):
                         self.grd[i,j] = self.Fijk ([i,j])
 
-    def DERIV2_mine(self, d0, d1, argxy):   # x, y):
-        if self.SymbolDiffer:
-            return self.Hessian[d0][d1](self.Node_to_Norm_or_Real(argxy)) #[x, y]))
-        else:
-#             self.ArgNorm = False
-            arg = np.array(self.Node_to_Norm_or_Real(argxy))  #[x, y]))    #  np.array    for + -
 
-            if self.ArgNorm:
-#                print( self.ArgNorm)
-                step = [a.step/a.ma_mi for a in self.A]
-            else:              step = [a.step for a in self.A]
+    def DERIV2_mine(self, d0, d1, argxy):   
+        if self.SymbolDiffer:
+            return self.Hessian[d0][d1](self.Node_to_Norm_or_Real(argxy)) 
+        
+        else:
+            arg = np.array(self.node_to_normalized(argxy))  
+            step = [a.step for a in self.A] 
+            for i, el in enumerate(step):
+                if i in self.grd_axis:
+                    if self.grd_norm == "Node":
+                        step[i] = 1
+                    elif self.grd_norm == "Norm01":
+                        step[i] = el / self.A[i].ma_mi
+                if i in self.smb_axis:
+                    if self.grd_norm == "Node":
+                        step[i] = 1
+                    elif self.grd_norm == "Norm01":
+                        step[i] = el / self.A[i].ma_mi
 
             if d0==0 and d1==0 :
                 if self.dim != 1:  step[1] = 0
-                ret =  ( self.smbF(arg-step) -2*self.smbF(arg) +self.smbF(arg+step) )/step[0]**2
+                ret =  ( self.interpoleNode(arg-step) -2*self.interpoleNode(arg) +self.interpoleNode(arg+step) )/step[0]**2
             elif d0==1 and d1==1 :
                 step[0] = 0
-                ret =  ( self.smbF(arg-step) -2*self.smbF(arg) +self.smbF(arg+step) )/step[1]**2
+                ret =  ( self.interpoleNode(arg-step) -2*self.interpoleNode(arg) +self.interpoleNode(arg+step) )/step[1]**2
             else:      #if d0==0 and d1==1 :
                 step1 = [step[0],-step[1]]
-                ret =  ( self.smbF(arg+step)+self.smbF(arg-step)-self.smbF(arg+step1)-self.smbF(arg-step1) ) \
+                ret =  ( self.interpoleNode(arg+step)+self.interpoleNode(arg-step)-self.interpoleNode(arg+step1)-self.interpoleNode(arg-step1) ) \
                     / step[0] / step[1] * .25
-    #        SvF.F_Arg_Type = ''
+    
             return ret
             
+    
+    def F_mine ( self, ArS_real ) :  #   real args
+        print("Вызывается F_my!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+        ret = self.interpoleNode( self.real_to_normalized( ArS_real) ) + self.V.avr    # gr = self.grd
+        return ret
 
+    # def Node_to_Norm_or_Real_mine (self, nodeArgs):
+    #     #realArgs = self.Node_to_Real (nodeArgs)      
+    #     #return self.Real_to_Norm_or_Real (realArgs)
+    #     if self.ArgNorm :  return  [nodeArgs[i]*a.step / a.ma_mi   for i, a in enumerate(self.A)]
+    #     else            :  return  [nodeArgs[i]*a.step + a.min     for i, a in enumerate(self.A)]
+    
 # #Из сеточных вариантов
 #     def Ftbl ( self, n ) :
 #         if self.type[0] == 'g':      # 2407
