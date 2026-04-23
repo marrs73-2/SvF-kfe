@@ -3,6 +3,7 @@ from __future__ import division
 import subprocess
 
 import COMMON as SvF
+from pyomo.opt import SolverStatus
 
 from Task    import Grd_to_Var
 
@@ -192,12 +193,19 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
 
 def  solveProblemsNl( Gr, SetNum, RunMo = 'L' ):   #  'L' - Local, 'N'- Nl local, 'S' - Server
         if RunMo == 'L' :
-                resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
-                setMuToTeach_k(SetNum)
-                results = SvF.optFact.solve(Gr, tee=False)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
-                get_termination_condition(results)
-                resultss.append(results)                    #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
-##                resultss.append(deepcopy(results))  # НЕ ПОМОГЛО !!!!      #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            setMuToTeach_k(SetNum)
+            results = SvF.optFact.solve(Gr, tee=True)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            print(f"Solver status: {results.solver.status}")
+            print(f"Termination condition: {results.solver.termination_condition}")
+    
+            if results.solver.status == SolverStatus.error:
+                print("Solver error details:")
+                if hasattr(results.solver, 'message'):
+                    print(results.solver.message)
+            get_termination_condition(results)
+            resultss.append(results)                    #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+##          resultss.append(deepcopy(results))  # НЕ ПОМОГЛО !!!!      #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
         else :
             sym_maps, __peProblems = makeNlFileS ( Gr, SetNum )
             resultss = solveNlFileS ( sym_maps, __peProblems, SvF.tmpFileDir, RunMo )

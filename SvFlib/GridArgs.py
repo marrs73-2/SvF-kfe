@@ -140,7 +140,7 @@ class Set (Object):
 
 
     def ValToInd(self, val):         # узел снизу
-        ret = int ( (val-self.min ) / self.step + 0.5 )
+        ret = int ( (val-self.min ) / self.step + 0.5 )  #kfe_changed
         if ret < 0 :
             print ("\n\n\n\n Out of range", ret)
             return 0

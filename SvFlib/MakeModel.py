@@ -3,6 +3,8 @@ from fontTools.misc.cython import returns
 
 from   ModelFiles import *
 from Table import *
+from functools import partial
+from Lego_MixedFun import debug_write_model
 
 
 def getKeyFromBuf (keys, part):                     # 'usehomeforPower' -> 'UseHomeforPower', '=', 'True'
@@ -1170,7 +1172,9 @@ def WriteVarParam26 ( buf, param ) :
          #       wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
 #            else:  # Set
             elif Type == "Mixed":
-                 make_mixedFun(fun, f_name, dim, val)
+                make_mixedFun(fun, f_name, dim, val)
+                debug_write_model()
+
             elif  smbFun == '':   #  Если не символьная
                     wr('\n    ' + f_name + '.var = py.Var ( ')
                     for di in range(dim):

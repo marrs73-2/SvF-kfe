@@ -21,6 +21,7 @@ from MakeModel import *
 from Pars      import *
 from Parser    import *
 from ModelFiles import *
+from Lego_MixedFun import debug_write_end
 
 #from PyomoEverestEnv  import *
 #import COMMON as co
@@ -449,6 +450,8 @@ def ReadMng ( ) :
                         if  Is(Q, "EoF"):
                             if SvF.ShowAll:
                                 Swr('\nif SvF.ShowAll:  input("         Нажмите ENTER, чтобы продолжить (закрыть все графики) ")')
+
+                        debug_write_end()
                         if not SvF.SModelFile is None:  SvF.SModelFile.close()
                         if Q == 'EOTASK' :  SvF.EofTask = True
                         else:               SvF.EofTask = False
