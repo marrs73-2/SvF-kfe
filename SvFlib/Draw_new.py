@@ -38,6 +38,7 @@ def Plot (plots) :
     if SvF.yaxis_step != 0:     ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=SvF.yaxis_step))
     if len(SvF.X_lim) != 0: plt.xlim(SvF.X_lim )
     if len(SvF.Y_lim) != 0: plt.ylim(SvF.Y_lim )
+
     TRANSPOSE = False
 
     def swapTRANS(x, y) :
@@ -114,12 +115,12 @@ def Plot (plots) :
           #      if len ( part_plot.split('=') ) == 2:  VAL = part_plot.split('=')[1].strip('"').strip("'")
                 print (PAR,VAL)
                 if   PAR in ['color', 'c' ] :                   C  = VAL                	# Цвет линии или маркера (например, 'red', '#FF0000')
-                elif PAR in ['color', 'lc' ] :                  C  = VAL 
+                elif PAR in ['color', 'lc' ] :                  C  = VAL                	# Цвет линии или маркера (например, 'red', '#FF0000')
                 elif PAR in ['linewidth', 'lw']:                LW = float(VAL)	            # Толщина линии (в пунктах, float)
                 elif PAR in ['linestyle', 'ls'] :               LS = VAL                    # Стиль линии (например, '-', '--', '-.', ':')
                 elif PAR in ['marker', 'mark' ] :               MARK = VAL                  # Тип маркера точек (например, 'o', 's', '^', '*')
                 elif PAR in ['markersize','ms'] :               MS = float(VAL)             # Размер маркера (в пунктах)
-                elif PAR in ['markerfacecolor',	'mc'] :      MFC = VAL; MEC = VAL    
+                elif PAR in ['markerfacecolor',	'mc'] :      MFC = VAL; MEC = VAL           # Цвет заливки (внутренней +граница)
                 elif PAR in ['markerfacecolor',	'mfc'] :        MFC = VAL                   # Цвет заливки (внутренней части) маркера mfc=none-не заливать
                 elif PAR in ['markeredgecolor', 'mec'] :        MEC = VAL                   # Цвет границы маркера
                 elif PAR in ['markeredgewidth', 'mew'] :        MEW = float(VAL)            # Толщина границы маркера
@@ -170,10 +171,19 @@ def Plot (plots) :
                     label=dLAB )
         if D == '2Dfun1' or D == '2Dxy' or D == '2Dpoly' :
             xx, yy = swapTRANS(xx, yy)
-            #print (LAB,LW)
+
+
+            # ax.loglog(xx, yy, color=C, lw=LW, linestyle=LS,    # 26.04
             ax.plot(xx, yy, color=C, lw=LW, linestyle=LS,
                 marker=MARK, markersize=MS, markerfacecolor=MFC, markeredgecolor=MEC, markeredgewidth=MEW,
                 label=LAB )
+
+        #    formatter = ScalarFormatter()      # 26.04
+        #    formatter.set_scientific(False)
+        #    formatter.set_useOffset(False)
+
+         #   ax.xaxis.set_major_formatter(formatter)
+          #  ax.yaxis.set_major_formatter(formatter)
 
         elif D == '2Dfun2' :
             xx, yy = swapTRANS(xx, yy)

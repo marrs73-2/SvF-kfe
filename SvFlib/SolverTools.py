@@ -64,6 +64,7 @@ def setMuToTeach_k (k) :                 #  notTrainingSets 1 - выбрасыв
         f.mu[:] = 1
         if type(k) == type(1):
            for s in f.notTrainingSets[k]:   f.mu[s].value = 0
+        ### print("MU MMU MU MU: ", [el.value for el in f.mu[:]]) #debug
 
 
 #def makeNlFileTeach(Gr, stab_file, notTrainingSets_k):
@@ -195,14 +196,14 @@ def  solveProblemsNl( Gr, SetNum, RunMo = 'L' ):   #  'L' - Local, 'N'- Nl local
         if RunMo == 'L' :
             resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             setMuToTeach_k(SetNum)
-            results = SvF.optFact.solve(Gr, tee=True)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
-            print(f"Solver status: {results.solver.status}")
-            print(f"Termination condition: {results.solver.termination_condition}")
+            results = SvF.optFact.solve(Gr, tee=False)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            # print(f"Solver status: {results.solver.status}")
+            # print(f"Termination condition: {results.solver.termination_condition}")
     
-            if results.solver.status == SolverStatus.error:
-                print("Solver error details:")
-                if hasattr(results.solver, 'message'):
-                    print(results.solver.message)
+            # if results.solver.status == SolverStatus.error:
+            #     print("Solver error details:")
+            #     if hasattr(results.solver, 'message'):
+            #         print(results.solver.message)
             get_termination_condition(results)
             resultss.append(results)                    #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
 ##          resultss.append(deepcopy(results))  # НЕ ПОМОГЛО !!!!      #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss

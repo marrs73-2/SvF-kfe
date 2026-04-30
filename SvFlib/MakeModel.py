@@ -1173,7 +1173,7 @@ def WriteVarParam26 ( buf, param ) :
 #            else:  # Set
             elif Type == "Mixed":
                 make_mixedFun(fun, f_name, dim, val)
-                debug_write_model()
+
 
             elif  smbFun == '':   #  Если не символьная
                     wr('\n    ' + f_name + '.var = py.Var ( ')
@@ -1191,6 +1191,9 @@ def WriteVarParam26 ( buf, param ) :
 
                     wr('    ' + f_name + '.gr =  ' + f_name + '.var')  # 25.10.18
                     wr('    Gr.' + f_name + ' =  ' + f_name + '.var')
+                    
+            if Type == "Mixed": debug_write_model(f_name) # kfe_added
+                    
 
  #24           if PolyPow < 0:  # Set
     #            wr('    ' + f_name + '.InitByData()')
@@ -1912,7 +1915,8 @@ def WriteModelOBJ19 ( Q, obj ):                        #   OBJ:
 #       Penalty
         if len (SvF.Penalty) == 0 :
 #            print '********C', obj.count('Penal[')
-            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.1)
+#            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.1)
+            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.03)      #   26.04
 
         if SvF.numCV == -1 and SvF.OptMode == 'SvF':   # CV по умолчанию  2023.11
             wr('\n    make_CV_Sets(0, SvF.CVstep)')  # CV_Sets (fu )    -   25.05
