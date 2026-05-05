@@ -59,46 +59,80 @@ def parse_func_args(text):
     
     return func_name, args
 
-points_list = list(np.arange(-1, 2.675, 0.175))
+points_list = list(np.arange(-1, 2.5, 0.025))
 #points_list = list(np.arange(0.00, 1.05, 0.05))
 
 def debug_write_end(*args, **kwargs):   # Для одномерного случая!!!
-    Swr("Task.ReadSols()")
-    Swr("import matplotlib.pyplot as plt")
-    Swr(f"x_points = {points_list}")
-    Swr("y_points = []")
-    task_list = []
-    for point in points_list:
-        task_list.append(f"Task.Gr.interp_{str(point).replace(".", "_").replace("-", "m")}")
-    task_list_str = ", ".join(task_list)
-    Swr(f"for el in [{task_list_str}]:")
-    Swr("   y_points.append(pyomo.environ.value(el))")
-    Swr("print('Значения:')")
-    Swr("for y_point in y_points: print(y_point)")
-    Swr(f"x_data_points = x.A[0].dat #[0.0, 0.25, 0.5, 0.75, 1.0] # x.A[0].Val")
-    Swr(f"y_data_points = x.V.dat #[1.2, 1.4, 2.5, 2.0, 2.7]")
-    Swr(f"print(x_data_points)")
-    Swr(f"print(y_data_points)")
-    Swr("plt.figure(figsize=(10, 6))")
-    Swr("plt.scatter(x_data_points, y_data_points, c='blue')")
-    Swr("plt.plot(x_points, y_points, c='red')")
-    # Swr("Task.DrawVar()")
-    # Swr("Task.DrawErr()")
-    Swr("plt.show()")
+    # Swr("Task.ReadSols()")
+    # Swr("import matplotlib.pyplot as plt")
+    # Swr(f"x_points = {points_list}")
+    # Swr("y_points = []")
+    # task_list = []
+    # for point in points_list:
+    #     task_list.append(f"Task.Gr.interp_{str(point).replace(".", "_").replace("-", "m")}")
+    # task_list_str = ", ".join(task_list)
+    # Swr(f"for el in [{task_list_str}]:")
+    # Swr("   y_points.append(pyomo.environ.value(el))")
+    # Swr("print('Значения:')")
+    # Swr("for y_point in y_points: print(y_point)")
+    # Swr(f"x_data_points = x.A[0].dat #[0.0, 0.25, 0.5, 0.75, 1.0] # x.A[0].Val")
+    # Swr(f"y_data_points = x.V.dat #[1.2, 1.4, 2.5, 2.0, 2.7]")
+    # # Swr(f"print(x_data_points)")
+    # # Swr(f"print(y_data_points)")
+    # Swr("plt.figure(figsize=(10, 6))")
+    # Swr("plt.scatter(x_data_points, y_data_points, c='blue')")
+    # Swr("plt.plot(x_points, y_points, c='red')")
+    # # Swr("Task.DrawVar()")
+    # # Swr("Task.DrawErr()")
+    # Swr("plt.show()")
     return 0
 
 def debug_write_model(*args, **kwargs):
-    f_name = "x"
-    wr("    from pyomo.environ import Expression, sqrt")
+    # f_name = "x"
+    # wr("    from pyomo.environ import Expression, sqrt")
 
-    wr("    def interp_at_x(m, point):")
-    wr(f"       return fx(point)")
+    # wr("    def interp_at_x(m, point):")
+    # wr(f"       return fx(point)")
 
-    for point in points_list:
-        wr(f"    Gr.interp_{str(point).replace(".", "_").replace("-", "m")}  = Expression(rule=partial(interp_at_x, point={point}))")
+    # for point in points_list:
+    #     wr(f"    Gr.interp_{str(point).replace(".", "_").replace("-", "m")}  = Expression(rule=partial(interp_at_x, point={point}))")
     return 0
 
-class MixedFun (Fun) : # smb.smbFun Fun
+
+# def log_all_methods(cls): # kfe_added for debug
+#     """Декоратор класса: добавляет print с именем метода и местом его вызова."""
+    
+#     def make_wrapper(method, method_name):
+#         @functools.wraps(method)
+#         def wrapper(self, *args, **kwargs):
+#             # Получаем информацию о том, кто нас вызвал
+#             stack = inspect.stack()
+#             # stack[0] — текущая функция (wrapper)
+#             # stack[1] — место, откуда вызван wrapper (т.е. код, вызвавший метод)
+#             caller_frame = stack[1]
+#             caller_file = caller_frame.filename
+#             caller_line = caller_frame.lineno
+#             # Пытаемся узнать имя вызывающей функции (если есть)
+#             caller_func = caller_frame.function
+            
+#             # Для красоты обрезаем путь до имени файла
+#             file_name = os.path.basename(caller_file)
+            
+#             print(f"➤ Вызов метода: {method_name}", end=' ')
+#             print(f"  ↳ из {caller_func} файла {file_name}")
+            
+#             return method(self, *args, **kwargs)
+#         return wrapper
+    
+#     for attr_name, attr_value in cls.__dict__.items():
+#         if callable(attr_value) and not attr_name.startswith('__'):
+#             setattr(cls, attr_name, make_wrapper(attr_value, attr_name))
+    
+#     return cls
+
+
+# @log_all_methods
+class MixedFun (smb.smbFun) : # smb.smbFun Fun
     """
     Синтаксис: f ( X, V ) = [SPWL,Mesh,Polynome(6)];
     """
@@ -108,9 +142,9 @@ class MixedFun (Fun) : # smb.smbFun Fun
         self.SymbolInteg=False
         self.SymbolDiffer =False
         self.Deriv1=False
-        self.do_print = True
-        self.do_print_ext = True
-        self.ArgNorm = False
+        self.do_print = False
+        self.do_print_ext = False
+        self.ArgNorm = False # позже отключает нормализацию
 
         self.discr_str = discr_str
         self.discr_list = dict()
@@ -129,6 +163,9 @@ class MixedFun (Fun) : # smb.smbFun Fun
         self.INT2D = self.INT2D_mine
         self.grd_norm = "Norm01" # "Node" or "Norm01"
         self.smb_norm = "Norm01" # "Node" or "Norm01"
+        if self.ArgNorm == False:
+            self.grd_norm = "Real"
+            self.smb_norm = "Real"
 
         self.process_discr_string()
         self.smb_axis = [int(_) for _ in self.smb_discr_list.keys()]
@@ -136,6 +173,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
         self.print_info()
         # self.discr_types = discr_types
         self.dim = len(self.discr_list)
+        if self.include_grd == True: Type = "g" + Type
 
         self.discr_methods = { 
             'SPWL': self._SPWL_discr,
@@ -305,7 +343,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
     #     return value
     
     def interpoleNode ( self, argNode, lev=None, to_Node=False): # Без какой-либо нормировки для grd_args
-        if lev is None :
+        if lev is None:
             caller_name = inspect.currentframe().f_back.f_code.co_name
             if self.do_print: print(f"E_pre_smbF00 вызвана из: {caller_name}()")
             lev = len(self.grd_discr_list)
@@ -335,7 +373,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
             if method_name == "Mesh":
                 #index = argNode[axis_num]
                 index_0 = floor((argNode[axis_num] - self.A[axis_num].min)/self.A[axis_num].step)
-                print("index_0, ", index_0, f"self.A[axis_num].min = {self.A[axis_num].min}", f"self.A[axis_num].step = {self.A[axis_num].step}", f", pre_index = {(argNode[axis_num] - self.A[axis_num].min)/self.A[axis_num].step}")
+                if self.do_print: print("index_0, ", index_0, f"self.A[axis_num].min = {self.A[axis_num].min}", f"self.A[axis_num].step = {self.A[axis_num].step}", f", pre_index = {(argNode[axis_num] - self.A[axis_num].min)/self.A[axis_num].step}")
                 if index_0 != self.A[axis_num].Ub:
                     index_1 = index_0 + 1
                 else:
@@ -569,7 +607,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
                 elif mode_grd == "Node":
                     new_ArS.append(el)
                 elif mode_grd == "Real":
-                    new_ArS.append((el + self.A[i].min)*self.A[i].step)
+                    new_ArS.append((el)*self.A[i].step  + self.A[i].min)
                 else:
                     print("[WARNING] No normalization for grd")
                     new_ArS.append(el)
@@ -579,7 +617,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
                 elif mode_smb == "Node":
                     new_ArS.append(el)
                 elif mode_smb == "Real":
-                    new_ArS.append((el + self.A[i].min)*self.A[i].step)
+                    new_ArS.append((el)*self.A[i].step  + self.A[i].min)
                 else:
                     print("[WARNING] No normalization for smb")
                     new_ArS.append(el)     
@@ -587,23 +625,23 @@ class MixedFun (Fun) : # smb.smbFun Fun
         return new_ArS
     
 
-    def normalized_grd_to_node ( self, args, flag) : 
-        new_args = list(copy(args))
-        if self.do_print: print("was, ", new_args)
-        #if self.grd_norm == "Norm01" and flag == "do":
-        if flag == "do":
-            for i, el in enumerate(args):
-                if self.do_print: print("Внутри обратной нормировки, step = ", self.A[self.grd_axis[i]].step)
-                new_args[i] = el / self.A[self.grd_axis[i]].step * self.A[self.grd_axis[i]].ma_mi
-                #print("step, ", self.A[self.grd_axis[i]].step)
-                #if abs(round(new_args[i]) - new_args[i]) < 0.01: new_args[i] = round(new_args[i]) ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
+    # def normalized_grd_to_node ( self, args, flag) : 
+    #     new_args = list(copy(args))
+    #     if self.do_print: print("was, ", new_args)
+    #     #if self.grd_norm == "Norm01" and flag == "do":
+    #     if flag == "do":
+    #         for i, el in enumerate(args):
+    #             if self.do_print: print("Внутри обратной нормировки, step = ", self.A[self.grd_axis[i]].step)
+    #             new_args[i] = el / self.A[self.grd_axis[i]].step * self.A[self.grd_axis[i]].ma_mi
+    #             #print("step, ", self.A[self.grd_axis[i]].step)
+    #             #if abs(round(new_args[i]) - new_args[i]) < 0.01: new_args[i] = round(new_args[i]) ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
 
-        # new_args = [int(i) for i in new_args]   ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
-        if self.do_print: print("became, ", new_args)
-        return new_args
+    #     # new_args = [int(i) for i in new_args]   ### IMPORTANT IMPORTANTIMPORTANTIMPORTANTIMPORTANTIMPORTANT!!!!!!!!!!
+    #     if self.do_print: print("became, ", new_args)
+    #     return new_args
 
-        # if self.ArgNorm  :  return  [(ArS_real[i]-a.min)/a.ma_mi for i, a in enumerate(self.A)]
-        # else                    :  return ArS_real
+    #     # if self.ArgNorm  :  return  [(ArS_real[i]-a.min)/a.ma_mi for i, a in enumerate(self.A)]
+    #     # else                    :  return ArS_real
 
 
     def Fijk_mine ( self, ijk ) :  # считает значение в узле с данными из таблицы по индексам
@@ -617,37 +655,37 @@ class MixedFun (Fun) : # smb.smbFun Fun
         return ret    # gr = self.grd
 
 
-    # def var_to_grd_mine (self) :
-    #         print("--- var_to_grd evoked")
-    #         if self.dim == 1:
-    #             for i in range(self.Sizes[0]):
-    #                 self.grd[i] = self.Fijk ([i])
-    #         elif self.dim == 2:
-    #             for i in range(self.Sizes[0]):
-    #                 for j in range(self.Sizes[1]):
-    #                     self.grd[i,j] = self.Fijk ([i,j])
-
-    def var_to_grd_mine (self) : # Из Lego_Tensor
-        if self.var is None:  return
-        if self.param : return
-        if   self.dim == 0:
-            self.grd[0] = self.var[0].value
-#                print ('self.grd0_________________', self.grd[0])
-        elif self.dim == 1:
-#            self.grd[:] = self.var[:].value
-            for i in range(self.Sizes[0]):
-                self.grd[i] = self.var[i].value
-        elif self.dim == 2:
-    #           self.grd[:,:] = self.var[:,:].value
-            for i in range(self.Sizes[0]):
-#                    for j in self.A[1].NodS:  self.grd[(i,j)] = self.var[(i,j)].value
-                for j in range(self.Sizes[1]):
-                    self.grd[i,j] = self.var[i,j].value
-        elif self.dim == 3:
-            for i in range(self.Sizes[0]):
-                for j in range(self.Sizes[1]):
-                    for k in range(self.Sizes[2]):
-                        self.grd[i,j,k] = self.var[i,j,k].value
+    def var_to_grd_mine (self) :
+        if self.include_smb == False:
+            if self.var is None:  return
+            if self.param : return
+            if   self.dim == 0:
+                self.grd[0] = self.var[0].value
+    #                print ('self.grd0_________________', self.grd[0])
+            elif self.dim == 1:
+    #            self.grd[:] = self.var[:].value
+                for i in range(self.Sizes[0]):
+                    self.grd[i] = self.var[i].value
+            elif self.dim == 2:
+        #           self.grd[:,:] = self.var[:,:].value
+                for i in range(self.Sizes[0]):
+    #                    for j in self.A[1].NodS:  self.grd[(i,j)] = self.var[(i,j)].value
+                    for j in range(self.Sizes[1]):
+                        self.grd[i,j] = self.var[i,j].value
+            elif self.dim == 3:
+                for i in range(self.Sizes[0]):
+                    for j in range(self.Sizes[1]):
+                        for k in range(self.Sizes[2]):
+                            self.grd[i,j,k] = self.var[i,j,k].value
+        else:
+            print("--- var_to_grd evoked")
+            if self.dim == 1:
+                for i in range(self.Sizes[0]):
+                    self.grd[i] = self.Fijk ([i])
+            elif self.dim == 2:
+                for i in range(self.Sizes[0]):
+                    for j in range(self.Sizes[1]):
+                        self.grd[i,j] = self.Fijk ([i,j])
 
 
     def DERIV2_mine(self, d0, d1, argxy): 
@@ -742,7 +780,7 @@ class MixedFun (Fun) : # smb.smbFun Fun
     
     def grd_to_var(self):
         if self.include_smb == True: # как в Lego_smbFun
-            return
+            return 0
         
         if self.var is None:  return
         if self.param: return

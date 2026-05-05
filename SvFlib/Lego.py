@@ -39,38 +39,38 @@ from Lego_Tools  import *
 
 from Lego_Tensor import *
 
-def log_all_methods(cls): # kfe_added for debug
-    """Декоратор класса: добавляет print с именем метода и местом его вызова."""
+# def log_all_methods(cls): # kfe_added for debug
+#     """Декоратор класса: добавляет print с именем метода и местом его вызова."""
     
-    def make_wrapper(method, method_name):
-        @functools.wraps(method)
-        def wrapper(self, *args, **kwargs):
-            # Получаем информацию о том, кто нас вызвал
-            stack = inspect.stack()
-            # stack[0] — текущая функция (wrapper)
-            # stack[1] — место, откуда вызван wrapper (т.е. код, вызвавший метод)
-            caller_frame = stack[1]
-            caller_file = caller_frame.filename
-            caller_line = caller_frame.lineno
-            # Пытаемся узнать имя вызывающей функции (если есть)
-            caller_func = caller_frame.function
+#     def make_wrapper(method, method_name):
+#         @functools.wraps(method)
+#         def wrapper(self, *args, **kwargs):
+#             # Получаем информацию о том, кто нас вызвал
+#             stack = inspect.stack()
+#             # stack[0] — текущая функция (wrapper)
+#             # stack[1] — место, откуда вызван wrapper (т.е. код, вызвавший метод)
+#             caller_frame = stack[1]
+#             caller_file = caller_frame.filename
+#             caller_line = caller_frame.lineno
+#             # Пытаемся узнать имя вызывающей функции (если есть)
+#             caller_func = caller_frame.function
             
-            # Для красоты обрезаем путь до имени файла
-            file_name = os.path.basename(caller_file)
+#             # Для красоты обрезаем путь до имени файла
+#             file_name = os.path.basename(caller_file)
             
-            print(f"➤ Вызов метода: {method_name}", end=' ')
-            print(f"  ↳ из {caller_func} файла {file_name}")
+#             print(f"➤ Вызов метода: {method_name}", end=' ')
+#             print(f"  ↳ из {caller_func} файла {file_name}")
             
-            return method(self, *args, **kwargs)
-        return wrapper
+#             return method(self, *args, **kwargs)
+#         return wrapper
     
-    for attr_name, attr_value in cls.__dict__.items():
-        if callable(attr_value) and not attr_name.startswith('__'):
-            setattr(cls, attr_name, make_wrapper(attr_value, attr_name))
+#     for attr_name, attr_value in cls.__dict__.items():
+#         if callable(attr_value) and not attr_name.startswith('__'):
+#             setattr(cls, attr_name, make_wrapper(attr_value, attr_name))
     
-    return cls
+#     return cls
 
-@log_all_methods
+# @log_all_methods
 class BaseFun (Tensor) :
     def __init__ (self, Vname='',  As=[], param=False, Degree=-1,  Finitialize = 1, DataReadFrom = '',Data=[],
                   Type='g', Domain = None, ArgNorm = True, ReadFrom = '' ) :
@@ -126,7 +126,7 @@ class BaseFun (Tensor) :
 #        elif self.type == 'Cycle':         self.type = 'gCycle'
         elif self.type == 'gCycle':        pass
         elif self.type == 'Recursive':       self.type = 'gRecursive'
-        elif self.type == 'Mixed':       self.type = 'gMixed' ## На что влияет?
+        elif self.type == 'Mixed':       self.type = 'Mixed' 
         else :
             print ('Неизвестный тип функции   ', self.type)
             exit (-1)
@@ -1269,7 +1269,7 @@ class BaseFun (Tensor) :
 
     def ReadSol ( self, fName='', printL=0 ) :
       print(f"!!!!!!1 self.type = {self.type}")
-      if self.type in ['smbFun']: #, 'gMixed']:  ########################## kfe_changed
+      if self.type in ['smbFun', 'Mixed']: #, 'gMixed']:  ########################## kfe_changed
           return
  #     print ('self.Task.Mng.Prefix',fName)
       Prefix = SvF.Prefix
