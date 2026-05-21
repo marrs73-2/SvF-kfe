@@ -19,14 +19,16 @@ import pyomo   #      05.10.24
 
 from ssop_session import *
 
-def Factory (optFile):
+def Factory (optFile, solverName):
     opt = None
     if optFile is None or SvF.RunMode[0] == 'L' or SvF.RunMode[2] == 'L' :
-        opt = SolverFactory(SvF.LocalSolverName)  #'server' :  SvF.LocalSolverName
-        opt.options.update( SvF.solverOptVal )
+        opt = SolverFactory(SvF.SolverScripts[solverName])  #'server' :  SvF.LocalSolverName
+        opt.options.update(SvF.SolverConfigSettings[solverName])
     if (not optFile is None) and \
         (SvF.RunMode[0] != 'L' or SvF.RunMode[2] != 'L'):
-        makeSolverOptionsFile(SvF.tmpFileDir + '/' + optFile, "ipopt", SvF.solverOptVal)
+        #makeSolverOptionsFile(SvF.tmpFileDir + '/' + optFile, SvF.SolverRealName, SvF.solverOptVal)
+        makeSolverOptionsFile(SvF.tmpFileDir + '/' + SvF.SolverConfigFileNames[solverName],
+                               solverName, SvF.SolverConfigSettings[solverName])
     return opt
 
 
@@ -100,8 +102,8 @@ import concurrent.futures  ###################
 
 def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
         def run_subTask(pName):
-            if SvF.SolverName.find('ipopt') >= 0:    pName_nl = pName + ".nl"
-            elif SvF.SolverName.find('scip') >= 0:   pName_nl = pName
+            if SvF.SolverNameLow == "ipopt":    pName_nl = pName + ".nl"
+            elif SvF.SolverNameLow == "scip":   pName_nl = pName
             else:
                 print("Solver Name ?")
                 exit(-17)
@@ -110,10 +112,11 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
             # original_cwd = os.getcwd()
             # os.chdir(tmpFileDir)
             # print(f"Changed to directory: {os.getcwd()}")
-            print(SvF.SolverName + ' ' + tmpFileDir + pName_nl + " -AMPL" +
-                              " \"option_file_name=" + tmpFileDir + "peipopt.opt\"") # !!!!!!!!!!!!!!
-            subprocess.check_call(SvF.SolverName + ' ' + tmpFileDir + pName_nl + " -AMPL" +
-                              " \"option_file_name=" + tmpFileDir + "peipopt.opt\"", shell=True)
+            print(SvF.SolverScripts[SvF.SolverNameLow] + ' ' + tmpFileDir + pName_nl + " -AMPL" +
+                              " \"option_file_name=" + tmpFileDir + f"{SvF.SolverConfigFileNames[SvF.SolverNameLow]}\"") # !!!!!!!!!!!!!!
+            
+            subprocess.check_call(SvF.SolverScripts[SvF.SolverNameLow] + ' ' + tmpFileDir + pName_nl + " -AMPL" + 
+                              " \"option_file_name=" + tmpFileDir + SvF.SolverConfigFileNames[SvF.SolverNameLow] + "\"", shell=True )
             # subprocess.check_call(SvF.SolverName + ' ' + pName_nl + " -AMPL" +
             #                   " \"option_file_name=" + "peipopt.opt\"", shell=True)
             # os.chdir(original_cwd)
@@ -139,13 +142,13 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
     ##                                           ],
                                      workdir=tmpFileDir, debug=False)
             print (__peProblems )
-            print ( SvF.optFile )
+            print (SvF.SolverConfigFileNames[SvF.SolverNameLow])
             if SvF.maxJobs > 0 :
                 while ( len (SvF.jobId_s) > SvF.maxJobs ) :
                     theSession.session.deleteJob( SvF.jobId_s[0] )
                     print ('Job  ', SvF.jobId_s[0], '  was killed' )
                     SvF.jobId_s.pop(0)
-            solved, unsolved, jobId = theSession.runJob(__peProblems, SvF.optFile)  # by default solver = "ipopt"
+            solved, unsolved, jobId = theSession.runJob(__peProblems, SvF.SolverConfigFileNames[SvF.SolverNameLow])  # by default solver = "ipopt"
 #            print("solved:   ", solved)
             print("unsolved: ", unsolved)
             print("Job %s is finished" % (jobId))
@@ -196,6 +199,7 @@ def  solveProblemsNl( Gr, SetNum, RunMo = 'L' ):   #  'L' - Local, 'N'- Nl local
         if RunMo == 'L' :
             resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             setMuToTeach_k(SetNum)
+            #makeNlFile(Gr, SvF.tmpFileDir + "/" + SvF.TaskName + "local" + '0' + ".nl") #kfe_changed
             results = SvF.optFact.solve(Gr, tee=False)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             # print(f"Solver status: {results.solver.status}")
             # print(f"Termination condition: {results.solver.termination_condition}")

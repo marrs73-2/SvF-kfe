@@ -48,7 +48,9 @@ def COMPILE_RUN_option(buf):
             ['resF',        'resF',             'NoName'],
             ['NumOfIter',   'CVNumOfIter',      None],
             ['MaxIter',     'CVNumOfIter',      None],
-            ['RunMode',     'RunMode',          '']
+            ['RunMode',     'RunMode',          ''],
+            ['SolverNameHigh',     'SolverNameHigh',          ''],
+            ['SolverNameLow',     'SolverNameLow',          '']
             ]
 
     if len(buf) == 0: return

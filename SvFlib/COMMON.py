@@ -6,8 +6,35 @@ F_Arg_Type = ''            #  заплатка для ArgNorm для fNi_fon(X,Y
 
 
 DrawMode = 'File'
-LocalSolverName  = 'docker-ipopt.sh'
-SolverName  = 'docker-ipopt.sh'
+# Установка солверов для обоих уровней основной суррогатной оптимизации раздельно
+SolverNameHigh = "ipopt"
+SolverNameLow = "ipopt"
+SolverScripts = {'ipopt':'docker-ipopt.sh', 'scip':'docker-scip.sh'}
+optFact = None # созданный солвер для решения задач низкого уровня
+
+# Словари для связки конфигураций солверов с их названиями
+ipopt_config = {  "linear_solver"              : 'ma57'\
+                 , 'max_iter'                   : 50000 \
+                 , "print_level"                : 0     \
+                 , 'warm_start_init_point'      : 'yes' \
+                 , 'warm_start_bound_push'      : 1e-6 \
+                 , 'warm_start_mult_bound_push' : 1e-6 \
+                 , 'constr_viol_tol'            : 1e-4 \
+                 , 'mu_init'                    : 1e-6 \
+                 , "tol"                        : 1e-9 \
+                 , 'print_user_options'         : 'yes'
+                }
+
+scip_config = {  "display/verblevel" : 5 \
+                     , "display/freq" : 200 \
+                     , "limits/gap" : 1.e-4 \
+                     , "memory/savefac ": 0.8 \
+                     , "parallel/minnthreads": 4
+            }
+
+SolverConfigSettings = {'ipopt': ipopt_config, 'scip': scip_config}
+SolverConfigFileNames = {'ipopt': 'peipopt.opt', 'scip': 'scip.set'}
+
 
 feasibleSol = None          #  function feasibleSol(Peal) - перед оптимизацией
 OptMode = 'SvF'
@@ -59,6 +86,13 @@ TabString       = '    '
 Use_var = False         # 29
 
 #   Drow  #############################
+DrawOpt = True     # kfe_added
+DrawOptPoints = 10  # kfe_added
+DrawOptMode = "Absolute" # Absolute / Relative
+DrawOptWidthCoef = 3     #kfe_added
+DrawOptSegment = [0.09, 0.14]
+
+
 CommaFormatter = False
 MarkerSize     = 1
 MarkerColor    = 'red'
@@ -155,22 +189,8 @@ TaskName    = 'NoName'
 useNaN      = True   #False
 VarNormalization = False
 
-optFact          = None
 token      =  ''
-optFile    =  'peipopt.opt'
 
-
-solverOptVal =  {  "linear_solver"              : 'ma57'\
-                 , 'max_iter'                   : 50000 \
-                 , "print_level"                : 0     \
-                 , 'warm_start_init_point'      : 'yes' \
-                 , 'warm_start_bound_push'      : 1e-6 \
-                 , 'warm_start_mult_bound_push' : 1e-6 \
-                 , 'constr_viol_tol'            : 1e-4 \
-                 , 'mu_init'                    : 1e-6 \
-                 , "tol"                        : 1e-9 \
-                 , 'print_user_options'         : 'yes'
-                }
 #    opt.options['acceptable_tol']       = 1e-10
 
 RunMode     = 'L&L'         #  S&P&O

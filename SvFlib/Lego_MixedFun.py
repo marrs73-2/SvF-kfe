@@ -553,14 +553,14 @@ class MixedFun (smb.smbFun) : # smb.smbFun Fun
         if self.do_print: print('In Ftbl: n and argNode: ', n, argNode)
         if self.include_grd == False: return self.smbF(argNode)
         else: return self.interpoleNode(argNode)
-    
+
 #     def F ( self, ArS_real ) :  #   real args, по идее ненужный метод
 #         print("F evoked "*5) # не бывает такого, видимо 0_0
 #    #     if self.ArgNorm:  SvF.F_Arg_Type = 'N'     #  заплатка для ArgNorm для fNi_fon(X,Y) символ функции   Ni(X,Y)  = Ni_fon(X,Y) + fon
 #         ret = self.smbF(self.real_to_normalized(ArS_real)) + self.V.avr    # gr = self.grd
 #     #    SvF.F_Arg_Type = ''
 #         return ret
-    
+
 
     def real_to_normalized ( self, ArS_real, mode_grd=None, mode_smb=None) : 
         new_ArS = list() 

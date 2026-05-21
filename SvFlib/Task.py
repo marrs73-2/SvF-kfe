@@ -58,6 +58,7 @@ class TaskClass :
         self.Funs    = []
         self.Tbls    = []
         self.Objects = []
+        self.OptPoints = [] #kfe_added
 #        self.Sets    = SvF.Sets
  #       self.Funs    = SvF.Funs     #  ��������� � Funs  �.�. � Pyoma
   #      self.Tbls    = SvF.Tbls

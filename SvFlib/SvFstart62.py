@@ -78,7 +78,7 @@ def SvFstart19 ( Task ) :
 
 #    maxSigEst = 0           # оценка сигмы скольз. среднем
 
-    co.optFact = Factory(co.optFile)
+    co.optFact = Factory(SvF.SolverConfigFileNames[SvF.SolverNameLow], co.SolverNameLow)
 #    print('co.optFactST', co.optFact)
 
 #    print ('')
@@ -93,7 +93,7 @@ def SvFstart19 ( Task ) :
             get_sigCV(co.Penalty, -1)
     else :
       #  print ('co.OptStep',co.OptStep, 'co.Penalty', co.Penalty)
-        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV )   ######## START ###########
+        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV, Task )   ######## START ###########
         with open(co.resF,'a') as f:      #  RES filewrite
             f.write( 'Step: '+ str(step) + '\nPoints:' )
             for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')
@@ -118,6 +118,12 @@ def SvFstart19 ( Task ) :
         if co.SavePoints : f.SavePoints()
 #        if co.SaveDeriv and f.type != 'p' :  f.SaveDeriv ( "" )
 #        if co.SaveGrid=='Y' and f.dim == 2 and f.type != 'p':     f.SaveGrid ( co.TranspGrid, '' )
+
+    if co.DrawOpt == True:
+        #print("Task.OptPoints = ", Task.OptPoints)
+        if Task.OptPoints == []: Task.OptPoints = [Penal]
+        plotOptim (Task)
+
     print ("EofCulc")
     print ('TIME: ', time.time() - full_start)
     return
@@ -216,7 +222,7 @@ def printMSD () :
 
 
 
-def get_sigCV( Penal, itera ):
+def get_sigCV( Penal, itera):
     co.CV_Iter = itera
     Task = co.Task
 #    reload (Model)
@@ -336,4 +342,128 @@ def get_sigCV( Penal, itera ):
                     Task.print_res(Task, Penal, f)
     return Estim
 
+def get_sigCV_kfe( Penal):
+    Task = co.Task
+    Task.ReadSols('')
 
+    print ('for Penal: ', Penal ) #, end=' ')
+
+    FillNaNAll ()
+    setUse_var(True)  # 25.10
+
+    Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
+    Grd_to_Var()
+    setUse_var(False)  # 25.10
+
+    for fu in Task.Funs :  fu.CVresult = []
+
+    resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+    Gr.solutions.load_from(resultss[0])
+    Var_to_Grd()
+
+    #Task.SaveSols('.tmp')
+
+    print ('OBJ',Gr.OBJ())
+    printMSD()
+
+
+    if co.CVNumOfIter != 0 :
+        star = time.time()
+
+        if co.RunMode[2] != 'L':
+#            resultss = solveProblemsNl ( Gr, co.notTrainingSets, co.RunMode[2] )
+            resultss = solveProblemsNl ( Gr, '*', co.RunMode[2] )              # All tests
+            for nres, res in enumerate (resultss) :
+                Gr.solutions.load_from(res)
+                testEstim(Gr, nres)
+        else:       ## co.RunMode[2] == 'L' :
+            res_num = 0
+#               print(co.CV_NoSets, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+            for k in range(co.CV_NoSets):                                  # LOAD RES,  culculation
+                #               if co.NotCulcBorder :  #  границ не считаем
+                #                  if k == 0 or k == len(ValidationSets) - 1:   1/0;  continue  #########  ???????????????????
+                #             printS (str(k)+' |')
+                #                results = solveProblemsNl(Gr, [co.notTrainingSets[k]], co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                results = solveProblemsNl(Gr, k, co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                res_num += 1
+                Gr.solutions.load_from(results)
+                testEstim(Gr, k)
+
+        Estim = getEstimCV(Gr)
+        print ('\tEstim% '+str(Estim)+"\tTime  "+ str(time.time() - star))
+
+    else : Estim = -1
+    return Estim
+
+def plotOptim (task): #kfe_added - отображение "оптимизации"
+    import matplotlib.pyplot as plt 
+    
+    for i, func in enumerate(task.Funs):
+        if func.type == 'tensor': continue
+        dim = func.dim
+        points = co.DrawOptPoints
+        print(f"Начало отрисовки коэффициентов регуляризации для функции {func.name} с dim {func.dim}")
+
+        if dim == 1:
+            if co.DrawOptMode == "Relative":
+                if len(task.OptPoints) > 1:
+                    center = task.OptPoints[0].Arg
+                else:
+                    center = task.OptPoints[0]
+
+                width = center / co.DrawOptWidthCoef  
+                x = np.linspace(center - width, center + width, points)
+            elif co.DrawOptMode == "Absolute":
+                x = np.linspace(co.DrawOptSegment[0], co.DrawOptSegment[1], points)
+
+            y = np.array([get_sigCV_kfe([xi]) for xi in x])
+            #y = np.array([get_sigCV([xi], 1) for xi in x])
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, y, 'b-o', linewidth=2, markersize=6)
+            plt.grid(True, alpha=0.3)
+            plt.title('График оптимизации: CV% от Penal')
+            plt.xlabel('Коэффициент регуляризации')
+            plt.ylabel('CV% - ошибка кросс-валидации')
+            
+        elif dim == 2:
+            if co.DrawOptMode == "Relative":
+                if len(task.OptPoints) > 1:
+                    center = [task.OptPoints[0].Arg, task.OptPoints[1].Arg]
+                else:
+                    center = [task.OptPoints[0], task.OptPoints[1]]
+                width = [center[0] / co.DrawOptWidthCoef, center[1] / co.DrawOptWidthCoef]
+                
+                x = np.linspace(center[0] - width[0]/2, center[0] + width[0]/2, points)
+                y = np.linspace(center[1] - width[1]/2, center[1] + width[1]/2, points)
+            elif co.DrawOptMode == "Absolute":
+                x = np.linspace(co.DrawOptSegment[0][0], co.DrawOptSegment[0][1], points)
+                y = np.linspace(co.DrawOptSegment[1][0], co.DrawOptSegment[1][1], points)
+
+            X, Y = np.meshgrid(x, y)
+            Z = get_sigCV(X, Y)
+            
+            plt.figure(figsize=(10, 8))
+            plt.contourf(X, Y, Z, levels=20, cmap='viridis')
+            plt.colorbar(label='f(x, y)')
+            plt.scatter(center[0], center[1], color='red', s=100, marker='*')
+            plt.title('2D функция на сетке')
+            plt.xlabel('X')
+            plt.ylabel('Y')
+            plt.grid(True, alpha=0.3)
+
+        if co.CVNumOfIter >= 0:
+            x_coef = [p.Arg for p in task.OptPoints]
+            y_sigma = [p.Val for p in task.OptPoints]
+            plt.scatter( x_coef, y_sigma, linewidth=2, color='red', label='Точки Соколова')
+            labels = [f"{num}" for num in range(len(task.OptPoints))]
+
+            # подписи к каждой точке
+            for _, (xi, yi, label) in enumerate(zip(x_coef, y_sigma, labels)):
+                plt.annotate(label, (xi, yi), 
+                            xytext=(5, 5),  # смещение текста
+                            textcoords='offset points',
+                            fontsize=10,
+                            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+            
+        plt.savefig(f'optPlot{i}.png')
