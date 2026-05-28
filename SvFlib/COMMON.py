@@ -50,7 +50,7 @@ maxJobs = 0
 ShowAll = True
 DrawFileName = ''
 #Resources = ["kulikovfe"]
-Resources = ["pool-scip-ipopt"]
+Resources = ["shark1vvv"]
 #Resources = [ "vvvolDellDocker" ]
 
 Substitude = True
@@ -189,7 +189,7 @@ TaskName    = 'NoName'
 useNaN      = True   #False
 VarNormalization = False
 
-token      =  ''
+token      =  '/home/kulikovfe/git_work/pyomo-everest/.token'
 
 #    opt.options['acceptable_tol']       = 1e-10
 
