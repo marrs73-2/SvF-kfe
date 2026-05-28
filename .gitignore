@@ -8,8 +8,6 @@
 
 **.back
 **.XXX
-pyomo-everest/examples/
-pyomo-everest/ssop/miscTest/
 test/tmp/*
 TMP/
 test/tmp

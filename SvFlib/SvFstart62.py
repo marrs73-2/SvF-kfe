@@ -17,7 +17,7 @@ import ssop_config
 #from Lego    import *
 from CVSets  import *
 from GaKru   import *
-from SurMin  import SurMin
+from SurMin  import SurMin, get_sigCV_for_spotoptim
 from Pars    import *
 from Tools   import *
 #from Task    import Grd_to_Var
@@ -93,7 +93,7 @@ def SvFstart19 ( Task ) :
             get_sigCV(co.Penalty, -1)
     else :
       #  print ('co.OptStep',co.OptStep, 'co.Penalty', co.Penalty)
-        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV, Task )   ######## START ###########
+        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV_for_spotoptim, Task )   ######## START ###########
         with open(co.resF,'a') as f:      #  RES filewrite
             f.write( 'Step: '+ str(step) + '\nPoints:' )
             for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')

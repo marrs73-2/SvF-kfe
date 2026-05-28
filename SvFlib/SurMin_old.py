@@ -7,21 +7,6 @@ from copy   import *
 import pyomo.environ as py
 
 from SolverTools import Factory #*
-from SvFstart62 import printMSD
-from Task import Grd_to_Var, setUse_var
-from CVSets  import *
-from GaKru   import *
-from Pars    import *
-from Tools   import *
-#from Task    import Grd_to_Var
-from Task    import Var_to_Grd, FillNaNAll, setUse_var
-from ModelFiles import to_logOut
-
-#from StartModel import Model
-#import Model as Model
-
-
-from SolverTools import *
 
 import COMMON as co
 
@@ -393,15 +378,15 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     step = 1e37
     if CVNumOfIter == 0:
             AllArgs = SetAllArgs(Arg, InArg, stepsIN)
-            Val = getVal (AllArgs)
+            Val = getVal ( AllArgs, -1 )
             points = [Point (Arg, Val, 0)]
             for p in points:  p.prin()
             return points, nan
 
-    for itera in range (dim+1) :
+    for itera in range (CVNumOfIter) :
         if itera == 0 :
             AllArgs = SetAllArgs(Arg, InArg, stepsIN)
-            Val = getVal (AllArgs)
+            Val = getVal ( AllArgs, itera )
 #            Val = getVal ( Arg, itera )
             print ('\nITER', itera, 'start', Val, 'st', np.nan,  Arg, '\n')
             points = [Point (Arg, Val, 0)]
@@ -415,7 +400,7 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             for attempt in range (Nattempt) :
                 nArg[itera-1] += step_i
                 AllArgs = SetAllArgs(nArg, InArg, stepsIN)
-                Val = getVal(AllArgs)
+                Val = getVal(AllArgs, itera)
 #                Val = getVal ( nArg, itera )
                 Arg, mi, grad = AddPoint ( points, nArg, Val )
                 print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
@@ -431,138 +416,128 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
                 step = np.sqrt(sum((pd * min_step) ** 2 for pd in par_der))
                 print('par_der', par_der, 'min_step', min_step, step)
 #           step = min (step, abs(step_i))
-    
-    if CVNumOfIter > dim:
-        from spotoptim import SpotOptim
-        from spotoptim.plot.visualization import plot_progress, plot_surrogate
+        elif firstDerec :   #itera == dim + 1 :
+            pol, tmp, tmp1 = CulcCoef (opt, points, curvPenal, farWieght)                              # CulcCoef
+            if coprintL: print ('coef', pol.coef[:dim+1], '\n    ', pol.coef[dim+1:])
+            old_coef = deepcopy (pol.coef)                                                  # ��� ���������� ���� ��������
+            prognVal, nArg, Constr, nIncr = Prognose ( opt, pol, points[-1], abs (step) )        # Prognose
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
+            prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
+            Arg, mi, grad = AddPoint ( points, nArg, Val )                                     #  AddPoint
+            print ('\nITER', itera, Constr, mi, 'grd', grad, 'Er', prognErr, 'st', step, 'Pr',
+                   prognVal, Val, '\n\t', nArg , 'firstDerec', '\n')
+            if grad < 0 and Constr == 'Const' :
+                if    prognErr < 0.05:  step *= 3
+                elif  prognErr < 0.09:  step *= 2
+                elif  prognErr < 0.19:  step *= 1.2
+            else                              : firstDerec = False
+            if prognErr > 0.3 :
+                firstDerec = False      # 28
+                step /= 3
+            old_points = deepcopy (points)                      # 25.01
 
-        print(f"Args начальных данных: ", [p.Arg for p in points])
-        print(f"Vals начальных данных: ", [p.Val for p in points])
-        bounds =  [[0.0, 10.0] for _ in range(dim)]
-        X_init = np.array([np.asarray(p.Arg).flatten() for p in points]) 
-        Y_init = np.array([point.Val for point in points]).flatten()
+        else :
+            if len(old_points) > 0 : 
+                farWieght, curvPenal = arrange_farWieght_curvPenal (opt, old_points, curvPenal, farWieght, Val, nArg)
+                farWieght *= ( distance (old_points[-dim-2],old_points[-1]) / distance (points[-dim-2],points[-1]) )
+                print ('farWieght dist', farWieght)
+            pol, tmp, tmp1 = CulcCoef (opt, points, curvPenal, farWieght)
+            if coprintL: print ('coef', pol.coef[:dim+1], '\n    ', pol.coef[dim+1:])
+            if dim == 1 :                                                                   # 25.01
+                ang_pov = 0
+            else :
+                ang_pov = int_angleV1V2 ( old_coef[1:dim+1], pol.coef[1:dim+1] )   # angle �������� �������� ������ ��������
+                print ('ang_pov' , ang_pov)
+            old_coef = deepcopy (pol.coef)
 
-        opt = SpotOptim(
-            fun=getVal,
-            bounds=bounds,
-            max_iter=CVNumOfIter - dim - 1 + X_init.shape[0],
-            n_initial=0,
-            selection_method='distant',
-            n_jobs=6,
-            verbose=True
-        )
+            ostep = step                                                # step    ����� ����
+            if old_stepMult >= 1 :
+                if   prognErr < 0.01 and ang_pov <  5 : stepMult = 5
+                elif prognErr < 0.05 and ang_pov < 15 : stepMult = 3
+                elif prognErr < 0.1  and ang_pov < 24 : stepMult = 2
+                elif prognErr < 0.15 and ang_pov < 30 : stepMult = 1
+                elif prognErr < 0.2  and ang_pov < 34 : stepMult = 0.9
+                elif prognErr < 0.4  and ang_pov < 37 : stepMult = 0.5
+                elif prognErr < 0.5  and ang_pov < 45 : stepMult = 0.3
+                elif prognErr < 1    and ang_pov < 80 : stepMult = 0.2
+                else                                  : stepMult = 0.1
+            else :
+                if   prognErr < 0.05  : stepMult = 3          
+                elif prognErr < 0.1   : stepMult = 2
+                elif prognErr < 0.15  : stepMult = 1
+                elif prognErr < 0.2   : stepMult = 0.9
+                elif prognErr < 0.4   : stepMult = 0.5
+                elif prognErr < 0.5   : stepMult = 0.3
+                elif prognErr < 1     : stepMult = 0.2
+                else                  : stepMult = 0.1
+            old_stepMult = stepMult
+            step*= stepMult
+            if Constr=='Inside' and step > ostep : step = ostep  #  ���� ����������� �� ���� ���, ��� �� �����������
+            prognVal, nArg, Constr, nIncr = Prognose ( opt, pol, points[-1], step )                        # Prognose
+ 
+            if dim > 1 :
+              cond, cCos = condition ( points, farWieght, opt )               # ���������������
+              if coprintL: print ('Cond', cond, 'cCos', cCos)
+              if coprintL: print ('cCos_Incr', int_angleV1V2 ( nIncr,cCos ))
+              
+              if len(old_cCos) > 0 :
+#                  print 'old_cCos',  old_cCos
+                  cCos_old_cCos = int_angleV1V2 ( cCos, old_cCos )  # cos old and new cond
+                  if coprintL: print ('cCos_old_cCos' , cCos_old_cCos)
+                  if dim>2 and abs (cCos_old_cCos-90.) > 30 :                 #  ������������ _|_
+                      pro =  old_cCos * np.cos (cCos_old_cCos*np.pi/180.)
+                      cCos = cCos - pro
+                      norm = norma ( cCos )
+                      cCos = cCos/norm
+                      print ('_|_ang', int_angleV1V2 ( cCos, old_cCos ))
+#              old_cCos = deepcopy(cCos) 
+              old_cCos = cCos.copy() 
+              print ('****Cond', cond, 'cCos', cCos, 'step', step)
+#              if prognErr >= 0.2 or cond < 1e-3 :
+              if 1 :  
+                malt = 0.03
+                for i in range (10) :
+#                    nnArg = np.array([ nArg[a]+cCos[a]*step*malt for a in range(dim) ])       #  ��� � ������� +
+                    nnArg = nArg + cCos*step*malt                                  #  ��� � ������� +
+                    prognValN = pol.CulcShift (nnArg, points[-1])
+#                    mnArg = np.array([ nArg[a]-cCos[a]*step*malt for a in range(dim) ])       #  ��� � ������� -
+                    mnArg = nArg - cCos*step*malt                                  #  ��� � ������� -
+                    mprognValN = pol.CulcShift (mnArg, points[-1])                  #    ����� ��� ������
+                    if mprognValN < prognValN :
+                        prognValN = mprognValN
+                        nnArg     = mnArg
+                        si = '-'
+                    else : si = '+'   
+                    print ('NNNN', si, prognVal, prognValN, points[-1].Val, nnArg)
+                    malt *= 0.1
+                    if prognValN < points[-1].Val : break
+                nArg = nnArg
+#                nArg = np.array(nnArg)
+                prognVal = prognValN
+            
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
+            print ('\t\t\topEr', prognErr, 'ang', ang_pov, 'ost', ostep, 'st',step, stepMult)
+            prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
+            old_points = deepcopy (points)
+            delta = Val - points[-1].Val
+            Arg, mi, grad = AddPoint ( points, nArg, Val )                                     #  AddPoint
 
-        opt.X_ = np.atleast_2d(X_init)
-        opt.y_ = np.asarray(Y_init).flatten()
-        opt.counter = len(X_init)
+            print ('\nITER',itera, Constr, mi, 'grd',grad, 'pEr',prognErr, 'P', prognVal, Val, \
+                  '\n\t', nArg, 'delta', delta, '\n')
+            if distance ( points[-2], points[-1] ) < ExitStep:
+                print ('***************  ExitIncr')
+                break       
+        if abs(step) < ExitStep:
+            print ('***************  ExitStep', abs(step), '<', ExitStep)
+            break       
 
-        idx_best = np.argmin(opt.y_)  
-        opt.best_x_ = opt.X_[idx_best].copy()
-        opt.best_y_ = float(opt.y_[idx_best])
+    for p in points :  p.prin()
+    #print("Added points: ", points)
+    Task.OptPoints = points #kfe_added
 
-        # Run optimization
-        result = opt.optimize()
-        new_points = points.extend([Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])])
-
-        #for p in new_points :  p.prin()
-        print(f"Args финальных данных: ", [p.Arg for p in new_points])
-        print(f"Vals финальных данных: ", [p.Val for p in new_points])
-        #print("Added points: ", points)
-        Task.OptPoints = new_points #kfe_added
-
-        plot_progress(opt)
-        #plot_surrogate(opt)
-
-#   STEP тут не настоящий! Он нужен для того, чтобы не менять интерфейс функции SurMin, а также для того, чтобы можно было использовать его в других местах, где он нужен. В данном случае, он не используется, так как оптимизация выполняется с помощью библиотеки spotoptim, которая сама определяет шаги оптимизации.
     return points, step
 
-def get_sigCV_for_spotoptim(Penal):
-    co.CV_Iter += 1
-    Task = co.Task
-#    reload (Model)
-    Task.ReadSols('')
-#    SvF.Penalty = Penal
-    if not (co.feasibleSol is None) : co.feasibleSol(Penal)
-
-    if co.OptMode == 'SvF':
-
-        setUse_var(True)  # 25.10
-
-        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
-        Grd_to_Var()
-        setUse_var(False)  # 25.10
-
-        for fu in Task.Funs :  fu.CVresult = []
-
-        if co.CV_Iter <= 0 : printS (' Load on Start ');   printMSD()
-
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
-        Gr.solutions.load_from(resultss[0])
-        Var_to_Grd()
-
-        Task.SaveSols('.tmp')
-
-        print ('OBJ',Gr.OBJ())
-        printMSD()
-
-
-        if co.CVNumOfIter != 0 :
-            star = time.time()
-
-            if co.RunMode[2] != 'L':
-    #            resultss = solveProblemsNl ( Gr, co.notTrainingSets, co.RunMode[2] )
-                resultss = solveProblemsNl ( Gr, '*', co.RunMode[2] )              # All tests
-                for nres, res in enumerate (resultss) :
-                    Gr.solutions.load_from(res)
-                    testEstim(Gr, nres)
-            else:       ## co.RunMode[2] == 'L' :
-                res_num = 0
- #               print(co.CV_NoSets, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-                for k in range(co.CV_NoSets):                                  # LOAD RES,  culculation
-                    #               if co.NotCulcBorder :  #  границ не считаем
-                    #                  if k == 0 or k == len(ValidationSets) - 1:   1/0;  continue  #########  ???????????????????
-                    #             printS (str(k)+' |')
-                    #                results = solveProblemsNl(Gr, [co.notTrainingSets[k]], co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
-                    results = solveProblemsNl(Gr, k, co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
-                    res_num += 1
-                    Gr.solutions.load_from(results)
-                    testEstim(Gr, k)
-
-            Estim = getEstimCV(Gr)
-            print ('\tEstim% '+str(Estim)+"\tTime  "+ str(time.time() - star))
-
-        else : Estim = -1
-
-    if Estim < co.optEstim :
-            co.optEstim = Estim
-            Task.RenameSols( '.tmp', '.sol' )
-
-            setMuToTeach_k('')     #  mu = 1   ##############  26/04/24
-            Task.ReadSols()                    ##############  26/04/24
-            Grd_to_Var()
-            with open(co.resF,'w') as f:      #  RES filewrite
-#                print >> f, [p for  p in Penal]
-                f.write (str(Penal))
-                for fu in Task.Funs :           # v21
-#                      if fu.mu is None: continue                     #  2023.11
-                      if fu.type == 'tensor': continue
-                      if fu.V.dat is None or fu.param: continue  # 23.11
-#                      str_wr = '\n'+fu.nameFun()+' '
-                      str_wr = fu.nameFun()+' '
-                      if co.CVNumOfIter > 0:
-                          if fu.MSDmode == 'MSDrel':   str_wr += " CV% " + str(fu.sCrVa*100)
-                          else:                     str_wr += " CV% " + str(fu.sCrVa/fu.V.sigma*100)
-                      str_wr += ' SD% ' + str(np.sqrt(fu.MSDv)*100) + " CV " + str(fu.sCrVa) \
-                                +' SD ' + str(np.sqrt(fu.MSDv)*fu.V.sigma) + ' sig '+str(fu.V.sigma)
-
-                      f.write ( '\n' + str_wr )
-                      print (str_wr)
-                      to_logOut ( str_wr )
-                f.write( '\n'+'Estim ' + str(Estim))
-                to_logOut ( 'Estim ' + str(Estim) )
-                to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
-
-#                print >> f, 'Estim',Estim
-                if Task.print_res != None :
-                    Task.print_res(Task, Penal, f)
-    return Estim

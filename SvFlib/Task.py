@@ -34,7 +34,7 @@ def setUse_var(tru=True):
         SvF.Use_var = tru
         for f in SvF.Task.Funs:
             if f.param == False :
- #               print("f.set_gr_grd_or_var()++++++++++++++++", f.name)
+ #              print("f.set_gr_grd_or_var()++++++++++++++++", f.name)
                 f.set_gr_grd_or_var()
 
 
