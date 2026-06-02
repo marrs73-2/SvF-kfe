@@ -7,8 +7,6 @@ from copy   import *
 import pyomo.environ as py
 
 from SolverTools import Factory #*
-from SvFstart62 import printMSD
-from Task import Grd_to_Var, setUse_var
 from CVSets  import *
 from GaKru   import *
 from Pars    import *
@@ -432,6 +430,7 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
                 print('par_der', par_der, 'min_step', min_step, step)
 #           step = min (step, abs(step_i))
     
+    print(f"dim = {dim}, CVNumOfIter = {CVNumOfIter}, len(points) = {len(points)}")
     if CVNumOfIter > dim:
         from spotoptim import SpotOptim
         from spotoptim.plot.visualization import plot_progress, plot_surrogate
@@ -439,7 +438,7 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
         print(f"Args начальных данных: ", [p.Arg for p in points])
         print(f"Vals начальных данных: ", [p.Val for p in points])
         bounds =  [[0.0, 10.0] for _ in range(dim)]
-        X_init = np.array([np.asarray(p.Arg).flatten() for p in points]) 
+        X_init = np.array([np.asarray(point.Arg).flatten() for point in points]) 
         Y_init = np.array([point.Val for point in points]).flatten()
 
         opt = SpotOptim(
@@ -452,6 +451,7 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             verbose=True
         )
 
+        print("Начинается заполнение начальных точек в оптимизатор")
         opt.X_ = np.atleast_2d(X_init)
         opt.y_ = np.asarray(Y_init).flatten()
         opt.counter = len(X_init)
@@ -459,10 +459,12 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
         idx_best = np.argmin(opt.y_)  
         opt.best_x_ = opt.X_[idx_best].copy()
         opt.best_y_ = float(opt.y_[idx_best])
+        print("Заполнение начальных точек в оптимизатор закончено. Начинается оптимизация")
 
         # Run optimization
         result = opt.optimize()
-        new_points = points.extend([Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])])
+        print(f"points = {points}, result.X = {result.X}, result.y = {result.y}")
+        new_points = points + [Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])]
 
         #for p in new_points :  p.prin()
         print(f"Args финальных данных: ", [p.Arg for p in new_points])
@@ -471,98 +473,8 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
         Task.OptPoints = new_points #kfe_added
 
         plot_progress(opt)
-        #plot_surrogate(opt)
+        plot_surrogate(opt)
+        points = new_points
 
 #   STEP тут не настоящий! Он нужен для того, чтобы не менять интерфейс функции SurMin, а также для того, чтобы можно было использовать его в других местах, где он нужен. В данном случае, он не используется, так как оптимизация выполняется с помощью библиотеки spotoptim, которая сама определяет шаги оптимизации.
     return points, step
-
-def get_sigCV_for_spotoptim(Penal):
-    co.CV_Iter += 1
-    Task = co.Task
-#    reload (Model)
-    Task.ReadSols('')
-#    SvF.Penalty = Penal
-    if not (co.feasibleSol is None) : co.feasibleSol(Penal)
-
-    if co.OptMode == 'SvF':
-
-        setUse_var(True)  # 25.10
-
-        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
-        Grd_to_Var()
-        setUse_var(False)  # 25.10
-
-        for fu in Task.Funs :  fu.CVresult = []
-
-        if co.CV_Iter <= 0 : printS (' Load on Start ');   printMSD()
-
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
-        Gr.solutions.load_from(resultss[0])
-        Var_to_Grd()
-
-        Task.SaveSols('.tmp')
-
-        print ('OBJ',Gr.OBJ())
-        printMSD()
-
-
-        if co.CVNumOfIter != 0 :
-            star = time.time()
-
-            if co.RunMode[2] != 'L':
-    #            resultss = solveProblemsNl ( Gr, co.notTrainingSets, co.RunMode[2] )
-                resultss = solveProblemsNl ( Gr, '*', co.RunMode[2] )              # All tests
-                for nres, res in enumerate (resultss) :
-                    Gr.solutions.load_from(res)
-                    testEstim(Gr, nres)
-            else:       ## co.RunMode[2] == 'L' :
-                res_num = 0
- #               print(co.CV_NoSets, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-                for k in range(co.CV_NoSets):                                  # LOAD RES,  culculation
-                    #               if co.NotCulcBorder :  #  границ не считаем
-                    #                  if k == 0 or k == len(ValidationSets) - 1:   1/0;  continue  #########  ???????????????????
-                    #             printS (str(k)+' |')
-                    #                results = solveProblemsNl(Gr, [co.notTrainingSets[k]], co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
-                    results = solveProblemsNl(Gr, k, co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
-                    res_num += 1
-                    Gr.solutions.load_from(results)
-                    testEstim(Gr, k)
-
-            Estim = getEstimCV(Gr)
-            print ('\tEstim% '+str(Estim)+"\tTime  "+ str(time.time() - star))
-
-        else : Estim = -1
-
-    if Estim < co.optEstim :
-            co.optEstim = Estim
-            Task.RenameSols( '.tmp', '.sol' )
-
-            setMuToTeach_k('')     #  mu = 1   ##############  26/04/24
-            Task.ReadSols()                    ##############  26/04/24
-            Grd_to_Var()
-            with open(co.resF,'w') as f:      #  RES filewrite
-#                print >> f, [p for  p in Penal]
-                f.write (str(Penal))
-                for fu in Task.Funs :           # v21
-#                      if fu.mu is None: continue                     #  2023.11
-                      if fu.type == 'tensor': continue
-                      if fu.V.dat is None or fu.param: continue  # 23.11
-#                      str_wr = '\n'+fu.nameFun()+' '
-                      str_wr = fu.nameFun()+' '
-                      if co.CVNumOfIter > 0:
-                          if fu.MSDmode == 'MSDrel':   str_wr += " CV% " + str(fu.sCrVa*100)
-                          else:                     str_wr += " CV% " + str(fu.sCrVa/fu.V.sigma*100)
-                      str_wr += ' SD% ' + str(np.sqrt(fu.MSDv)*100) + " CV " + str(fu.sCrVa) \
-                                +' SD ' + str(np.sqrt(fu.MSDv)*fu.V.sigma) + ' sig '+str(fu.V.sigma)
-
-                      f.write ( '\n' + str_wr )
-                      print (str_wr)
-                      to_logOut ( str_wr )
-                f.write( '\n'+'Estim ' + str(Estim))
-                to_logOut ( 'Estim ' + str(Estim) )
-                to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
-
-#                print >> f, 'Estim',Estim
-                if Task.print_res != None :
-                    Task.print_res(Task, Penal, f)
-    return Estim

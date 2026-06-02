@@ -17,7 +17,7 @@ import ssop_config
 #from Lego    import *
 from CVSets  import *
 from GaKru   import *
-from SurMin  import SurMin, get_sigCV_for_spotoptim
+from SurMin  import SurMin
 from Pars    import *
 from Tools   import *
 #from Task    import Grd_to_Var
@@ -134,6 +134,21 @@ def SvFstart19 ( Task ) :
 
 #optEstim = sys.float_info.max
 
+def printMSD () :
+    printS ("sol SD%: |")
+    for ifu, fu in enumerate(co.Task.Funs) :
+            if  fu.type == 'tensor' : continue
+            if fu.V.dat is None or fu.param: continue       #  23.11
+#            if fu.mu is None:  continue                    #  23.11
+            if not co.Task.DeltaVal is None: fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
+            else:
+                if fu.MSDmode == 'MSDrel':  fu.MSDv = fu.MSDrel(fu.measurement_accur)          # 21.02.2023
+                else :                      fu.MSDv = fu.MSDnan()
+#            if co.Task.defMSDVal is None : fu.MSDv = fu.MSDnan()  ### ()
+ #           else                         : fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
+            printS (fu.V.name, np.sqrt(fu.MSDv)*100.,' |')
+    print ('')
+
 
 def testEstim (Gr, k) :  # k - ValidationSets
     Var_to_Grd()
@@ -203,23 +218,6 @@ def getEstimCV(Gr) :
             NumOfFuns += 1
         Estim = Estim / NumOfFuns * 100
         return Estim
-
-
-def printMSD () :
-    printS ("sol SD%: |")
-    for ifu, fu in enumerate(co.Task.Funs) :
-            if  fu.type == 'tensor' : continue
-            if fu.V.dat is None or fu.param: continue       #  23.11
-#            if fu.mu is None:  continue                    #  23.11
-            if not co.Task.DeltaVal is None: fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
-            else:
-                if fu.MSDmode == 'MSDrel':  fu.MSDv = fu.MSDrel(fu.measurement_accur)          # 21.02.2023
-                else :                      fu.MSDv = fu.MSDnan()
-#            if co.Task.defMSDVal is None : fu.MSDv = fu.MSDnan()  ### ()
- #           else                         : fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
-            printS (fu.V.name, np.sqrt(fu.MSDv)*100.,' |')
-    print ('')
-
 
 
 def get_sigCV( Penal, itera):
@@ -343,6 +341,7 @@ def get_sigCV( Penal, itera):
     return Estim
 
 def get_sigCV_kfe( Penal):
+    print_here = False
     Task = co.Task
     Task.ReadSols('')
 
@@ -394,6 +393,112 @@ def get_sigCV_kfe( Penal):
 
     else : Estim = -1
     return Estim
+import sys
+from io import StringIO
+
+def suppress_print(func):
+    """Декоратор для подавления print внутри функции"""
+    def wrapper(*args, **kwargs):
+        original_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            result = func(*args, **kwargs)
+        finally:
+            sys.stdout = original_stdout
+        return result
+    return wrapper
+
+@suppress_print
+def get_sigCV_for_spotoptim(Penal):
+    co.CV_Iter += 1
+    Task = co.Task
+#    reload (Model)
+    Task.ReadSols('')
+#    SvF.Penalty = Penal
+    if not (co.feasibleSol is None) : co.feasibleSol(Penal)
+
+    if co.OptMode == 'SvF':
+
+        setUse_var(True)  # 25.10
+
+        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
+        Grd_to_Var()
+        setUse_var(False)  # 25.10
+
+        for fu in Task.Funs :  fu.CVresult = []
+
+        if co.CV_Iter <= 0 : printS (' Load on Start ');   printMSD()
+
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        Gr.solutions.load_from(resultss[0])
+        Var_to_Grd()
+
+        Task.SaveSols('.tmp')
+        print ('OBJ',Gr.OBJ())
+        printMSD()
+
+
+        if co.CVNumOfIter != 0 :
+            star = time.time()
+
+            if co.RunMode[2] != 'L':
+    #            resultss = solveProblemsNl ( Gr, co.notTrainingSets, co.RunMode[2] )
+                resultss = solveProblemsNl ( Gr, '*', co.RunMode[2] )              # All tests
+                for nres, res in enumerate (resultss) :
+                    Gr.solutions.load_from(res)
+                    testEstim(Gr, nres)
+            else:       ## co.RunMode[2] == 'L' :
+                res_num = 0
+ #               print(co.CV_NoSets, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                for k in range(co.CV_NoSets):                                  # LOAD RES,  culculation
+                    #               if co.NotCulcBorder :  #  границ не считаем
+                    #                  if k == 0 or k == len(ValidationSets) - 1:   1/0;  continue  #########  ???????????????????
+                    #             printS (str(k)+' |')
+                    #                results = solveProblemsNl(Gr, [co.notTrainingSets[k]], co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                    results = solveProblemsNl(Gr, k, co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                    res_num += 1
+                    Gr.solutions.load_from(results)
+                    testEstim(Gr, k)
+
+            Estim = getEstimCV(Gr)
+            print ('\tEstim% '+str(Estim)+"\tTime  "+ str(time.time() - star))
+
+        else : Estim = -1
+
+    if Estim < co.optEstim :
+            co.optEstim = Estim
+            Task.RenameSols( '.tmp', '.sol' )
+
+            setMuToTeach_k('')     #  mu = 1   ##############  26/04/24
+            Task.ReadSols()                    ##############  26/04/24
+            Grd_to_Var()
+            with open(co.resF,'w') as f:      #  RES filewrite
+#                print >> f, [p for  p in Penal]
+                f.write (str(Penal))
+                for fu in Task.Funs :           # v21
+#                      if fu.mu is None: continue                     #  2023.11
+                      if fu.type == 'tensor': continue
+                      if fu.V.dat is None or fu.param: continue  # 23.11
+#                      str_wr = '\n'+fu.nameFun()+' '
+                      str_wr = fu.nameFun()+' '
+                      if co.CVNumOfIter > 0:
+                          if fu.MSDmode == 'MSDrel':   str_wr += " CV% " + str(fu.sCrVa*100)
+                          else:                     str_wr += " CV% " + str(fu.sCrVa/fu.V.sigma*100)
+                      str_wr += ' SD% ' + str(np.sqrt(fu.MSDv)*100) + " CV " + str(fu.sCrVa) \
+                                +' SD ' + str(np.sqrt(fu.MSDv)*fu.V.sigma) + ' sig '+str(fu.V.sigma)
+
+                      f.write ( '\n' + str_wr )
+                      print (str_wr)
+                      to_logOut ( str_wr )
+                f.write( '\n'+'Estim ' + str(Estim))
+                to_logOut ( 'Estim ' + str(Estim) )
+                to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
+
+#                print >> f, 'Estim',Estim
+                if Task.print_res != None :
+                    Task.print_res(Task, Penal, f)
+    return Estim
+
 
 def plotOptim (task): #kfe_added - отображение "оптимизации"
     import matplotlib.pyplot as plt 
@@ -467,3 +572,4 @@ def plotOptim (task): #kfe_added - отображение "оптимизаци�
                             bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
             
         plt.savefig(f'optPlot{i}.png')
+

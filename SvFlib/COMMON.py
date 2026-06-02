@@ -86,7 +86,7 @@ TabString       = '    '
 Use_var = False         # 29
 
 #   Drow  #############################
-DrawOpt = True     # kfe_added
+DrawOpt = False     # kfe_added
 DrawOptPoints = 10  # kfe_added
 DrawOptMode = "Absolute" # Absolute / Relative
 DrawOptWidthCoef = 3     #kfe_added
