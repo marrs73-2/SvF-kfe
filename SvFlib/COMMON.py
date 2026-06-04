@@ -87,7 +87,7 @@ Use_var = False         # 29
 
 #   Drow  #############################
 DrawOpt = False     # kfe_added
-DrawOptPoints = 10  # kfe_added
+DrawOptPoints = 5  # kfe_added
 DrawOptMode = "Absolute" # Absolute / Relative
 DrawOptWidthCoef = 3     #kfe_added
 DrawOptSegment = [0.09, 0.14]

@@ -361,16 +361,17 @@ def SetAllArgs (Arg, InArg, stepsIN ) :
     return InArg
 
 
+init_x_to_y_dict = None
 
-
-def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
+def SurMinMethod ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     old_points = []
     old_cCos = []
     old_stepMult = 1
     par_der = []   # deriv
     firstDerec = True
 #    opt = LittleFactory ( None, 10000, 1e-9 )  # ����� ����������
-
+    global init_x_to_y_dict
+    init_x_to_y_dict = dict()
     opt = Factory (None, co.SolverNameHigh)  # ����� ����������
 
     Arg = []
@@ -397,6 +398,7 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             return points, nan
 
     for itera in range (dim+1) :
+        print(f"Started iteration {itera} of SurMinMethod with CVNumOfIter={CVNumOfIter}, dim={dim}")
         if itera == 0 :
             AllArgs = SetAllArgs(Arg, InArg, stepsIN)
             Val = getVal (AllArgs)
@@ -405,6 +407,14 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             points = [Point (Arg, Val, 0)]
 
         elif itera <= dim :
+            init_x_to_y_dict.clear()
+            for p in points:
+                print(f"p.Arg = {p.Arg}")
+                print(f"p.Val = {p.Val}")
+            init_x_to_y_dict.update({
+                tuple(np.round(np.asarray(p.Arg).flatten(), 8)): float(p.Val)
+                for p in points
+            })
             nArg = Arg.copy()
 #            if stepIN > 0 : stepp = stepIN
  #           else          : stepp = Arg[itera-1] * (-stepIN)
@@ -432,37 +442,44 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     
     print(f"dim = {dim}, CVNumOfIter = {CVNumOfIter}, len(points) = {len(points)}")
     if CVNumOfIter > dim:
+        init_x_to_y_dict.clear()
+        init_x_to_y_dict.update({
+            tuple(np.round(np.asarray(p.Arg).flatten(), 8)): float(p.Val)
+            for p in points
+        })
+    
+
         from spotoptim import SpotOptim
         from spotoptim.plot.visualization import plot_progress, plot_surrogate
 
         print(f"Args начальных данных: ", [p.Arg for p in points])
         print(f"Vals начальных данных: ", [p.Val for p in points])
-        bounds =  [[0.0, 10.0] for _ in range(dim)]
+        bounds =  [[0.0, 0.8] for _ in range(dim)]
         X_init = np.array([np.asarray(point.Arg).flatten() for point in points]) 
-        Y_init = np.array([point.Val for point in points]).flatten()
 
+        print("* Creation of SpotOPtim optimizer")
         opt = SpotOptim(
             fun=getVal,
             bounds=bounds,
             max_iter=CVNumOfIter - dim - 1 + X_init.shape[0],
             n_initial=0,
             selection_method='distant',
-            n_jobs=6,
+            n_jobs=1,
             verbose=True
         )
 
-        print("Начинается заполнение начальных точек в оптимизатор")
-        opt.X_ = np.atleast_2d(X_init)
-        opt.y_ = np.asarray(Y_init).flatten()
-        opt.counter = len(X_init)
+        # print("Начинается заполнение начальных точек в оптимизатор")
+        # opt.X_ = np.atleast_2d(X_init)
+        # opt.y_ = np.asarray(Y_init).flatten()
+        # opt.counter = len(X_init)
 
-        idx_best = np.argmin(opt.y_)  
-        opt.best_x_ = opt.X_[idx_best].copy()
-        opt.best_y_ = float(opt.y_[idx_best])
-        print("Заполнение начальных точек в оптимизатор закончено. Начинается оптимизация")
+        # idx_best = np.argmin(opt.y_)  
+        # opt.best_x_ = opt.X_[idx_best].copy()
+        # opt.best_y_ = float(opt.y_[idx_best])
+        # print("Заполнение начальных точек в оптимизатор закончено. Начинается оптимизация")
 
         # Run optimization
-        result = opt.optimize()
+        result = opt.optimize(X0=X_init)
         print(f"points = {points}, result.X = {result.X}, result.y = {result.y}")
         new_points = points + [Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])]
 
@@ -473,7 +490,8 @@ def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
         Task.OptPoints = new_points #kfe_added
 
         plot_progress(opt)
-        plot_surrogate(opt)
+        if dim == 2:
+            plot_surrogate(opt)
         points = new_points
 
 #   STEP тут не настоящий! Он нужен для того, чтобы не менять интерфейс функции SurMin, а также для того, чтобы можно было использовать его в других местах, где он нужен. В данном случае, он не используется, так как оптимизация выполняется с помощью библиотеки spotoptim, которая сама определяет шаги оптимизации.

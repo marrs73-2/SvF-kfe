@@ -17,7 +17,8 @@ import ssop_config
 #from Lego    import *
 from CVSets  import *
 from GaKru   import *
-from SurMin  import SurMin
+import SurMin
+from SurMin  import SurMinMethod
 from Pars    import *
 from Tools   import *
 #from Task    import Grd_to_Var
@@ -43,6 +44,9 @@ from pyomo.opt import SolverFactory
 buf = ""
 
 #Mng = ''
+# import sys
+# import io
+# sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace') #kfe_added
 
 def SvFstart19 ( Task ) :
     full_start = time.time()
@@ -93,7 +97,7 @@ def SvFstart19 ( Task ) :
             get_sigCV(co.Penalty, -1)
     else :
       #  print ('co.OptStep',co.OptStep, 'co.Penalty', co.Penalty)
-        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV_for_spotoptim, Task )   ######## START ###########
+        points, step = SurMinMethod ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV_for_spotoptim, Task )   ######## START ###########
         with open(co.resF,'a') as f:      #  RES filewrite
             f.write( 'Step: '+ str(step) + '\nPoints:' )
             for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')
@@ -408,9 +412,23 @@ def suppress_print(func):
         return result
     return wrapper
 
-@suppress_print
+#@suppress_print
 def get_sigCV_for_spotoptim(Penal):
     co.CV_Iter += 1
+    #Penal = [[0.9]]
+    print(f"PRINTING init_x_to_y_dict: on {co.CV_Iter} = {SurMin.init_x_to_y_dict}, \n Penal = {Penal}")
+    Penal = np.atleast_2d(np.array(Penal))
+    n_samples = Penal.shape[0]
+    if n_samples > 1:
+        print("В get_sigCV передано несколько точек - возвращаю значения для точек инициализации")
+        print(f"Массив возвращаемых значений: {np.array(list(SurMin.init_x_to_y_dict.values()))}")
+        return np.array(list(SurMin.init_x_to_y_dict.values()))
+    
+    if Penal.ndim == 2 and Penal.shape[0] == 1:
+        Penal = Penal[0]
+    
+    print(f"Penal after 'squeeze': {Penal}")
+
     Task = co.Task
 #    reload (Model)
     Task.ReadSols('')
