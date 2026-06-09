@@ -451,7 +451,7 @@ def ReadMng ( ) :
                             if SvF.ShowAll:
                                 Swr('\nif SvF.ShowAll:  input("         Нажмите ENTER, чтобы продолжить (закрыть все графики) ")')
 
-                        debug_write_end()
+                        debug_write_end() # kfe_added for testing MixedFunc addition
                         if not SvF.SModelFile is None:  SvF.SModelFile.close()
                         if Q == 'EOTASK' :  SvF.EofTask = True
                         else:               SvF.EofTask = False
@@ -460,6 +460,8 @@ def ReadMng ( ) :
     elif Is(Q, 'CV:'):    WriteCV (Treat_FieldNames(buf))
     elif Is(Q, 'DRAW:'):  Swr('Task.Draw ( \'' + buf + '\' )')
     elif Is(Q, 'PLOT:'):  WritePLOT (Treat_FieldNames(buf)) #( buf )
+    elif Is(Q, 'COMPARE:'): #kfe_added
+        SvF.ResToCompare = buf
 
 
     elif Is(Q, "MakeSets_byParam") :                #  out of date      24-12-26

@@ -5,6 +5,7 @@ from   ModelFiles import *
 from Table import *
 from functools import partial
 from Lego_MixedFun import debug_write_model
+import COMMON as co
 
 
 def getKeyFromBuf (keys, part):                     # 'usehomeforPower' -> 'UseHomeforPower', '=', 'True'
@@ -50,7 +51,12 @@ def COMPILE_RUN_option(buf):
             ['MaxIter',     'CVNumOfIter',      None],
             ['RunMode',     'RunMode',          ''],
             ['SolverNameHigh',     'SolverNameHigh',          ''],
-            ['SolverNameLow',     'SolverNameLow',          '']
+            ['SolverNameLow',     'SolverNameLow',          ''],
+            ['AcquisitionMode',     'Acquisition_mode',          ''],
+            ['LowBound',     'Low_bound',          None],
+            ['HighBound',     'High_bound',          None],
+            ['ShowSpotoptimGraphs',     'Show_spotoptim_graphs',          'True'],
+            ['UseSpotoptim',     'Use_spotoptim',          'True']
             ]
 
     if len(buf) == 0: return
@@ -62,6 +68,7 @@ def COMPILE_RUN_option(buf):
         if key is None or eq == '':
             print ("Unknown key or no \'=\' in ", opt, '.....', key, eq, val)
             exit (-1)
+
         writeBuf += 'SvF.' + key + '=' + str(val) + '; '
         if  key in ['ShowAll','UseHomeforPower', 'UsePrime']:
             if   val == True:   setattr(SvF, key, True)
@@ -69,6 +76,7 @@ def COMPILE_RUN_option(buf):
             else :
                 print('Для ', key, ' должно писать =True или =False а не ', val)
                 exit(-1)
+    #print(f"НАПИСАЛ СюДААА {writeBuf}")
     Swr(writeBuf)
 
 
@@ -121,6 +129,7 @@ def WritePenalty ( buf ):       # Penalty:   [Inf.Period, Imm.Period]=0.999; RR=
  #           print ('s', s)
             if len(s) == 0: continue
             if s.find ('SvF.resF') == 0:  Swr(s)
+            elif s.find ('SvF.ResAux') == 0:  Swr(s)
             else :
                 ss = s.split('=')
                 if len (ss)==1: ss.append('')
@@ -1915,10 +1924,10 @@ def WriteModelOBJ19 ( Q, obj ):                        #   OBJ:
             obj = objP[0][:p_plus+1] + 'defMSD(Gr,'+str(fNum)+')'+end
             if SvF.printL:  print (obj)
 #       Penalty
-        if len (SvF.Penalty) == 0 :
-#            print '********C', obj.count('Penal[')
-#            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.1)
-            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.03)      #   26.04
+#         if len (SvF.Penalty) == 0 : #from kfe: ?????? Мешает записи начальных коэфф. в Penalty через PENALTY блок
+# #            print '********C', obj.count('Penal[')
+# #            for p in range(obj.count('Penal[')) : SvF.Penalty.append (.1)
+#             for p in range(obj.count('Penal[')) : SvF.Penalty.append (.03)      #   26.04
 
         if SvF.numCV == -1 and SvF.OptMode == 'SvF':   # CV по умолчанию  2023.11
             wr('\n    make_CV_Sets(0, SvF.CVstep)')  # CV_Sets (fu )    -   25.05

@@ -15,9 +15,9 @@ from Tools   import *
 from Task    import Var_to_Grd, FillNaNAll, setUse_var
 from ModelFiles import to_logOut
 
-#from StartModel import Model
-#import Model as Model
-
+from spotoptim import SpotOptim
+from spotoptim.plot.visualization import plot_progress, plot_surrogate
+import matplotlib.pyplot as plt
 
 from SolverTools import *
 
@@ -31,7 +31,7 @@ import COMMON as co
 # 1) ��������� ��������� - ���������� ��� �����  B1i, B2i, SIGi
 # 2) ��������� �������� ���������������� ������������ 2-��� �������:
 #    - ����� ����������� � ������� ������ (��� ������ ����� �� �������� ��������, ��� ������ ���)
-#    - ����������� ����� �� �������� ����������� (�� �������� ������������� ��� ������������ ������),
+#    - ����������� ����� �� �������� ����1������� (�� �������� ������������� ��� ������������ ������),
 #      �������� �������� ����������� ���, ����� ������� �� �������� � ���������� ����� ��� ������ ��������.
 # 3) ����������� ����� �������� B1 � B2, ��� ��� ����������� SIG. ����������� �� ��� 2.
 # ����� �� ���-�� �������� ��� �� �������� ���� (���������� �����)
@@ -360,16 +360,28 @@ def SetAllArgs (Arg, InArg, stepsIN ) :
             a_in += 1
     return InArg
 
-
+    
 init_x_to_y_dict = None
 
-def SurMinMethod ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
-    old_points = []
-    old_cCos = []
-    old_stepMult = 1
+def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
+    """
+    Method does surrogate optimization based on spotoptim module's toolkit. 
+    Initial design is yet an initial point with several others formed with a little shift (0.05)
+    Main optimization loop is entirely spotoptim's optimizer.
+
+    Args:
+        CVNumOfIter (int): maximum number of performed iterations in optimization process.
+        stepsIN - ?
+        InArg - Initial value of regularization parameters 
+        getVal (function): link to an evaluation method which serves as a blackbox and provides values 
+            for the upper level of surrogate optimization.
+        Task (Task object): link to a SvF Task object to which calculations belong. 
+
+    Returns:
+        list[SvF Point objects]: list of all points calculated throughout optimization
+    """
+
     par_der = []   # deriv
-    firstDerec = True
-#    opt = LittleFactory ( None, 10000, 1e-9 )  # ����� ����������
     global init_x_to_y_dict
     init_x_to_y_dict = dict()
     opt = Factory (None, co.SolverNameHigh)  # ����� ����������
@@ -441,26 +453,35 @@ def SurMinMethod ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
 #           step = min (step, abs(step_i))
     
     print(f"dim = {dim}, CVNumOfIter = {CVNumOfIter}, len(points) = {len(points)}")
+
+    # Main optimization loop with spotoptim
     if CVNumOfIter > dim:
+        # Update of cached initial points in the global dictionary last time.
         init_x_to_y_dict.clear()
         init_x_to_y_dict.update({
             tuple(np.round(np.asarray(p.Arg).flatten(), 8)): float(p.Val)
             for p in points
         })
-    
 
-        from spotoptim import SpotOptim
-        from spotoptim.plot.visualization import plot_progress, plot_surrogate
+        # Output of optimization parameters
+        print(f"Args of initial points: ", [p.Arg for p in points])
+        print(f"Vals of initial points: ", [p.Val for p in points])
+        print(f"Acquisition mode is set to {co.Acquisition_mode}")
+        print(f"Low and high bounds for each dimension are [{co.Low_bound},{co.High_bound}]")
 
-        print(f"Args начальных данных: ", [p.Arg for p in points])
-        print(f"Vals начальных данных: ", [p.Val for p in points])
-        bounds =  [[0.0, 0.8] for _ in range(dim)]
-        X_init = np.array([np.asarray(point.Arg).flatten() for point in points]) 
+        # Bounds for each optimization parameter. Should be changed sometimes according to problem's specifics. 
+        # regularization parameters too low or too high (relatively) can result in solver error.
+        bounds =  [[co.Low_bound, co.High_bound] for _ in range(dim)]
 
-        print("* Creation of SpotOPtim optimizer")
+        # Numpy array of custom initial points for optimizer
+        X_init = np.array([np.asarray(point.Arg).flatten()
+                            for point in points]) 
+
+        # Define spotoptim optimizer
         opt = SpotOptim(
             fun=getVal,
             bounds=bounds,
+            acquisition=co.Acquisition_mode,
             max_iter=CVNumOfIter - dim - 1 + X_init.shape[0],
             n_initial=0,
             selection_method='distant',
@@ -468,31 +489,233 @@ def SurMinMethod ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             verbose=True
         )
 
-        # print("Начинается заполнение начальных точек в оптимизатор")
-        # opt.X_ = np.atleast_2d(X_init)
-        # opt.y_ = np.asarray(Y_init).flatten()
-        # opt.counter = len(X_init)
-
-        # idx_best = np.argmin(opt.y_)  
-        # opt.best_x_ = opt.X_[idx_best].copy()
-        # opt.best_y_ = float(opt.y_[idx_best])
-        # print("Заполнение начальных точек в оптимизатор закончено. Начинается оптимизация")
-
         # Run optimization
         result = opt.optimize(X0=X_init)
         print(f"points = {points}, result.X = {result.X}, result.y = {result.y}")
+
+        # Add points evaluated in optimization to an array of initial points
         new_points = points + [Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])]
+        print(f"Args of result points: ", [p.Arg for p in new_points])
+        print(f"Vals of result points: ", [p.Val for p in new_points])
 
-        #for p in new_points :  p.prin()
-        print(f"Args финальных данных: ", [p.Arg for p in new_points])
-        print(f"Vals финальных данных: ", [p.Val for p in new_points])
-        #print("Added points: ", points)
-        Task.OptPoints = new_points #kfe_added
+        # Save all points in Task object for custom plots
+        Task.OptPoints = new_points
 
-        plot_progress(opt)
+        # show graphs from spotoptim or save them in files
+        ShowGraphs = co.Show_spotoptim_graphs
+
+        # Plot graph of CV error from number of optimizer iterations
+        plot_progress(opt, show=ShowGraphs)
+        if ShowGraphs == False:
+            plt.savefig("Surrogate_CVError_to_iter.png", dpi=200)
+            plt.close()
+
+        # For 2 regularization coefficients plot spotoptim 2D graph of the surrogate surface and prediction certainty 
         if dim == 2:
-            plot_surrogate(opt)
+            plot_surrogate(opt, show=ShowGraphs)
+            if ShowGraphs == False:
+                plt.savefig("Surrogate_2D_surface.png", dpi=200)
+                plt.close()
+
+
         points = new_points
 
 #   STEP тут не настоящий! Он нужен для того, чтобы не менять интерфейс функции SurMin, а также для того, чтобы можно было использовать его в других местах, где он нужен. В данном случае, он не используется, так как оптимизация выполняется с помощью библиотеки spotoptim, которая сама определяет шаги оптимизации.
+    return points
+
+
+
+def SurMinOld ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
+    """
+    Old self-written version of optimization process by Sokolov.
+    Left currently for comparison. Unchanged.
+    """
+    old_points = []
+    old_cCos = []
+    old_stepMult = 1
+    par_der = []   # deriv
+    firstDerec = True
+#    opt = LittleFactory ( None, 10000, 1e-9 )  # ����� ����������
+
+    opt = Factory (None, co.SolverNameHigh)  # ����� ����������
+
+    Arg = []
+    steps = []
+    for ia, a in enumerate(InArg) :
+        if stepsIN[ia] != 0 :
+            Arg.append(a)
+            steps.append(stepsIN[ia])
+    Arg = np.array (Arg)
+    dim = len (Arg)
+
+    curvPenal = 0.001
+    print ("len", len (steps) )
+    if len (steps)==0 : farWieght = 1   #  ��� ����������
+    else:               farWieght = 2/dim/abs(steps[0])
+    #  exp ( - farWieght * dist...
+    print ('\nstart  farWieght', farWieght)
+    step = 1e37
+    if CVNumOfIter == 0:
+            AllArgs = SetAllArgs(Arg, InArg, stepsIN)
+            Val = getVal ( AllArgs, -1 )
+            points = [Point (Arg, Val, 0)]
+            for p in points:  p.prin()
+            return points, nan
+
+    for itera in range (CVNumOfIter) :
+        if itera == 0 :
+            AllArgs = SetAllArgs(Arg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( Arg, itera )
+            print ('\nITER', itera, 'start', Val, 'st', np.nan,  Arg, '\n')
+            points = [Point (Arg, Val, 0)]
+
+        elif itera <= dim :
+            nArg = Arg.copy()
+#            if stepIN > 0 : stepp = stepIN
+ #           else          : stepp = Arg[itera-1] * (-stepIN)
+            step_i = steps[itera-1]
+            Nattempt = 5
+            for attempt in range (Nattempt) :
+                nArg[itera-1] += step_i
+                AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+                Val = getVal(AllArgs, itera)
+#                Val = getVal ( nArg, itera )
+                Arg, mi, grad = AddPoint ( points, nArg, Val )
+                print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
+                if mi != '***' : break
+                if attempt != Nattempt-1 :
+                    nArg[itera - 1] -= step_i
+                    if attempt == 0 :  step_i = - step_i
+                    else            :  step_i *= -0.05
+            steps[itera - 1] = step_i                           # 24.05
+            par_der.append(grad*np.sign(step_i))
+            if (itera == dim) :
+                min_step = min([abs(steps[ipd] / pd) for ipd, pd in enumerate(par_der)])
+                step = np.sqrt(sum((pd * min_step) ** 2 for pd in par_der))
+                print('par_der', par_der, 'min_step', min_step, step)
+#           step = min (step, abs(step_i))
+        elif firstDerec :   #itera == dim + 1 :
+            pol, tmp, tmp1 = CulcCoef (opt, points, curvPenal, farWieght)                              # CulcCoef
+            if coprintL: print ('coef', pol.coef[:dim+1], '\n    ', pol.coef[dim+1:])
+            old_coef = deepcopy (pol.coef)                                                  # ��� ���������� ���� ��������
+            prognVal, nArg, Constr, nIncr = Prognose ( opt, pol, points[-1], abs (step) )        # Prognose
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
+            prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
+            Arg, mi, grad = AddPoint ( points, nArg, Val )                                     #  AddPoint
+            print ('\nITER', itera, Constr, mi, 'grd', grad, 'Er', prognErr, 'st', step, 'Pr',
+                   prognVal, Val, '\n\t', nArg , 'firstDerec', '\n')
+            if grad < 0 and Constr == 'Const' :
+                if    prognErr < 0.05:  step *= 3
+                elif  prognErr < 0.09:  step *= 2
+                elif  prognErr < 0.19:  step *= 1.2
+            else                              : firstDerec = False
+            if prognErr > 0.3 :
+                firstDerec = False      # 28
+                step /= 3
+            old_points = deepcopy (points)                      # 25.01
+
+        else :
+            if len(old_points) > 0 : 
+                farWieght, curvPenal = arrange_farWieght_curvPenal (opt, old_points, curvPenal, farWieght, Val, nArg)
+                farWieght *= ( distance (old_points[-dim-2],old_points[-1]) / distance (points[-dim-2],points[-1]) )
+                print ('farWieght dist', farWieght)
+            pol, tmp, tmp1 = CulcCoef (opt, points, curvPenal, farWieght)
+            if coprintL: print ('coef', pol.coef[:dim+1], '\n    ', pol.coef[dim+1:])
+            if dim == 1 :                                                                   # 25.01
+                ang_pov = 0
+            else :
+                ang_pov = int_angleV1V2 ( old_coef[1:dim+1], pol.coef[1:dim+1] )   # angle �������� �������� ������ ��������
+                print ('ang_pov' , ang_pov)
+            old_coef = deepcopy (pol.coef)
+
+            ostep = step                                                # step    ����� ����
+            if old_stepMult >= 1 :
+                if   prognErr < 0.01 and ang_pov <  5 : stepMult = 5
+                elif prognErr < 0.05 and ang_pov < 15 : stepMult = 3
+                elif prognErr < 0.1  and ang_pov < 24 : stepMult = 2
+                elif prognErr < 0.15 and ang_pov < 30 : stepMult = 1
+                elif prognErr < 0.2  and ang_pov < 34 : stepMult = 0.9
+                elif prognErr < 0.4  and ang_pov < 37 : stepMult = 0.5
+                elif prognErr < 0.5  and ang_pov < 45 : stepMult = 0.3
+                elif prognErr < 1    and ang_pov < 80 : stepMult = 0.2
+                else                                  : stepMult = 0.1
+            else :
+                if   prognErr < 0.05  : stepMult = 3          
+                elif prognErr < 0.1   : stepMult = 2
+                elif prognErr < 0.15  : stepMult = 1
+                elif prognErr < 0.2   : stepMult = 0.9
+                elif prognErr < 0.4   : stepMult = 0.5
+                elif prognErr < 0.5   : stepMult = 0.3
+                elif prognErr < 1     : stepMult = 0.2
+                else                  : stepMult = 0.1
+            old_stepMult = stepMult
+            step*= stepMult
+            if Constr=='Inside' and step > ostep : step = ostep  #  ���� ����������� �� ���� ���, ��� �� �����������
+            prognVal, nArg, Constr, nIncr = Prognose ( opt, pol, points[-1], step )                        # Prognose
+ 
+            if dim > 1 :
+              cond, cCos = condition ( points, farWieght, opt )               # ���������������
+              if coprintL: print ('Cond', cond, 'cCos', cCos)
+              if coprintL: print ('cCos_Incr', int_angleV1V2 ( nIncr,cCos ))
+              
+              if len(old_cCos) > 0 :
+#                  print 'old_cCos',  old_cCos
+                  cCos_old_cCos = int_angleV1V2 ( cCos, old_cCos )  # cos old and new cond
+                  if coprintL: print ('cCos_old_cCos' , cCos_old_cCos)
+                  if dim>2 and abs (cCos_old_cCos-90.) > 30 :                 #  ������������ _|_
+                      pro =  old_cCos * np.cos (cCos_old_cCos*np.pi/180.)
+                      cCos = cCos - pro
+                      norm = norma ( cCos )
+                      cCos = cCos/norm
+                      print ('_|_ang', int_angleV1V2 ( cCos, old_cCos ))
+#              old_cCos = deepcopy(cCos) 
+              old_cCos = cCos.copy() 
+              print ('****Cond', cond, 'cCos', cCos, 'step', step)
+#              if prognErr >= 0.2 or cond < 1e-3 :
+              if 1 :  
+                malt = 0.03
+                for i in range (10) :
+#                    nnArg = np.array([ nArg[a]+cCos[a]*step*malt for a in range(dim) ])       #  ��� � ������� +
+                    nnArg = nArg + cCos*step*malt                                  #  ��� � ������� +
+                    prognValN = pol.CulcShift (nnArg, points[-1])
+#                    mnArg = np.array([ nArg[a]-cCos[a]*step*malt for a in range(dim) ])       #  ��� � ������� -
+                    mnArg = nArg - cCos*step*malt                                  #  ��� � ������� -
+                    mprognValN = pol.CulcShift (mnArg, points[-1])                  #    ����� ��� ������
+                    if mprognValN < prognValN :
+                        prognValN = mprognValN
+                        nnArg     = mnArg
+                        si = '-'
+                    else : si = '+'   
+                    print ('NNNN', si, prognVal, prognValN, points[-1].Val, nnArg)
+                    malt *= 0.1
+                    if prognValN < points[-1].Val : break
+                nArg = nnArg
+#                nArg = np.array(nnArg)
+                prognVal = prognValN
+            
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
+            print ('\t\t\topEr', prognErr, 'ang', ang_pov, 'ost', ostep, 'st',step, stepMult)
+            prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
+            old_points = deepcopy (points)
+            delta = Val - points[-1].Val
+            Arg, mi, grad = AddPoint ( points, nArg, Val )                                     #  AddPoint
+
+            print ('\nITER',itera, Constr, mi, 'grd',grad, 'pEr',prognErr, 'P', prognVal, Val, \
+                  '\n\t', nArg, 'delta', delta, '\n')
+            if distance ( points[-2], points[-1] ) < ExitStep:
+                print ('***************  ExitIncr')
+                break       
+        if abs(step) < ExitStep:
+            print ('***************  ExitStep', abs(step), '<', ExitStep)
+            break       
+
+    for p in points :  p.prin()
+    #print("Added points: ", points)
+    Task.OptPoints = points #kfe_added
+
     return points, step

@@ -63,7 +63,6 @@ funPrefix = 'f'             #  в ReadMng добавить обработку
 #funPrefix = 'f_'
 Prefix   = ''
 Comment = False              #  в ReadMng
-
 UseGreek = False
 
 comment_buf = ''
@@ -151,16 +150,21 @@ DataPath = ''
 ExitStep     =   1e-7
 OptStep      = '0.01'
 
+# spotoptim optimization parameters
+Use_spotoptim = True
+Acquisition_mode = "y"
+Low_bound = 1.e-3
+High_bound = 1
+Show_spotoptim_graphs=True
+
 mngF = ''
 
-resF = ''    #      #resF = None - not read Penalty
-
-#lenPenalty   = 0   25 02 10
-Penalty      = []
+resF = ''    #      #resF = None - not read Penalty; resF = '' - make resF copy from .mng  file name
+ResAux = ''
+ResToCompare = []
+Penalty      =  []
 OptNames = []
-#fromPenalty = None
 
-#  mngPenalty   = []        ???
 
 #CVproc       = ''
 CVNumOfIter  =   20

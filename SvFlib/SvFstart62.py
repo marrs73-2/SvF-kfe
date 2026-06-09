@@ -18,15 +18,11 @@ import ssop_config
 from CVSets  import *
 from GaKru   import *
 import SurMin
-from SurMin  import SurMinMethod
+from SurMin  import SurMinMethod, SurMinOld
 from Pars    import *
 from Tools   import *
-#from Task    import Grd_to_Var
 from Task    import Var_to_Grd, FillNaNAll, setUse_var
 from ModelFiles import to_logOut
-
-#from StartModel import Model
-#import Model as Model
 
 
 from SolverTools import *
@@ -49,60 +45,69 @@ buf = ""
 # sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace') #kfe_added
 
 def SvFstart19 ( Task ) :
+    """
+    Main method for SvF, envokes optimization.
+    It's only called from the end of written StartModel.py file for a specific Task.
+    """
+
     full_start = time.time()
     print ('\n\n\nStart SvFstart')
+
+    # Switch gr to grd bacause numerical optimization is about to start
     setUse_var(False)  # 25.10
 
-    if co.resF is None :   #  не считываем, но сохраняем
-        co.resF = co.mngF[:co.mngF.rfind('.')] + '.res'  # RES file read
-##        co.lenPenalty = len (co.OptNames)
+    print(f"co.resF = {co.resF}, co.Penalty = {co.Penalty}")
+    # If co.resF is None, Penalty is not read from the .res file. Otherwise, it is.
+    if co.resF is None: 
+        if co.ResAux != '':
+            # Set custom name of .res file for writing in later
+            co.resF = co.ResAux + '.res'
+        else:
+            # If co.resF isn't custom set name of .res file based on .mng file name for writing in later. 
+            co.resF = co.mngF[:co.mngF.rfind('.')] + '.res'
     else :
-        if co.resF == '' :  co.resF = co.mngF[:co.mngF.rfind('.')]+'.res'   #  RES file read
+        # Set name of .res file based on .mng file name if co.resF isn't custom. 
+        if co.resF == '' :  co.resF = co.mngF[:co.mngF.rfind('.')]+'.res'
 
-        Penal = co.Penalty
-##        if co.printL : print ('co.lenPenalty', co.lenPenalty)
-        print(Penal, co.Penalty)
-
-      #  print('From File: ', co.resF) #, len (co.Penalty), co.Penalty)
-
+        # Try getting Penalty from .res file
         try:
                 with (open(co.resF,'r') as f):
-                    s = f.readline().strip().replace(',', ' ').replace('   ', ' ').replace('  ', ' ').replace(' ', ',')  #.split(', ')
+                    s = f.readline().strip().replace(',', ' ').replace('   ', ' ').replace('  ', ' ').replace(' ', ',')  
                     Penal = readListFloat19 (s)
-                    print ('read PENALTY:', Penal)
+                    print ('read PENALTY:', Penal)\
+                    
+                    # save read initinal regularization coefficients back to configuration file
+                    co.Penalty = Penal
         except IOError as e:
                 print ("******* Can''t open RES file: ", co.resF)
-        #        if len (Penal) == 0 :  exit(-1)
-        co.Penalty = Penal
-    # print (co.Penalty); exit(22)
- #   co.Penalty = [0.1 if x is None else x for x in co.Penalty]    26.04
+
+
+    # Idk what's that for
     co.Penalty = [0.03 if x is None else x for x in co.Penalty]
- #   print (Penal, co.Penalty)
-  #  1/0
 
-#    maxSigEst = 0           # оценка сигмы скольз. среднем
-
+    # Make solver for low-level of surrogate optimization
     co.optFact = Factory(SvF.SolverConfigFileNames[SvF.SolverNameLow], co.SolverNameLow)
-#    print('co.optFactST', co.optFact)
 
-#    print ('')
- #   for f in Task.Funs :  f.Oprint()
-  #  print ('')
-
+    # optStep is basically Penalty, but a little smaller. Idk what was it for...
     if type(co.OptStep) is str :
         co.OptStep = [float(co.OptStep) * p for p in co.Penalty[:]]
 
     if co.CVNumOfIter < 0: pass
+    # If iterations number is set to zero then just calculate CVError of initial Penalty without optimization
     elif co.CVNumOfIter == 0:
             get_sigCV(co.Penalty, -1)
     else :
-      #  print ('co.OptStep',co.OptStep, 'co.Penalty', co.Penalty)
-        points, step = SurMinMethod ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV_for_spotoptim, Task )   ######## START ###########
-        with open(co.resF,'a') as f:      #  RES filewrite
-            f.write( 'Step: '+ str(step) + '\nPoints:' )
+        # Start surrogate optimization to find better regularization parameters if iterations are > 0.
+        # Two ways of optimization are available: 1) new based on spotoptim module 2) old self-written
+        if co.Use_spotoptim == True:
+            points = SurMinMethod ( co.CVNumOfIter, co.OptStep, co.Penalty, get_sigCV_for_spotoptim, Task )
+        else:
+            points, step = SurMinOld ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV, Task )
+
+        # Write all points to a .res file
+        with open(co.resF,'a') as f:     
+            f.write( 'Points:' )
             for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')
-#            print >> f, 'Step:', step, '\nPoints:'
- #           for p in points :  print >> f, 'Num', p.Num, 'Val', p.Val, 'Arg', p.Arg
 
     Task.ReadSols('')
     Gr = Task.Gr
@@ -123,9 +128,12 @@ def SvFstart19 ( Task ) :
 #        if co.SaveDeriv and f.type != 'p' :  f.SaveDeriv ( "" )
 #        if co.SaveGrid=='Y' and f.dim == 2 and f.type != 'p':     f.SaveGrid ( co.TranspGrid, '' )
 
+    # Draw optimization graph (currently only for 1D) with all points evaluated in optimization
+    # and other evenly spaced additionaly evalueted points 
     if co.DrawOpt == True:
-        #print("Task.OptPoints = ", Task.OptPoints)
-        if Task.OptPoints == []: Task.OptPoints = [Penal]
+        # If optimization didn't happen fill the OptPoints array with initial value
+        if Task.OptPoints == []: Task.OptPoints = [co.Penalty]
+
         plotOptim (Task)
 
     print ("EofCulc")
