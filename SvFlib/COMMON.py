@@ -155,13 +155,14 @@ Use_spotoptim = True
 Acquisition_mode = "y"
 Low_bound = 1.e-3
 High_bound = 1
-Show_spotoptim_graphs=True
+Show_spotoptim_graphs=False
 
 mngF = ''
 
 resF = ''    #      #resF = None - not read Penalty; resF = '' - make resF copy from .mng  file name
 ResAux = ''
-ResToCompare = []
+ResFilesToCompare = []
+Tail_start = []
 Penalty      =  []
 OptNames = []
 

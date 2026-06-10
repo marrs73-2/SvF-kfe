@@ -130,18 +130,20 @@ def distance ( p1, p2 ) :
 
 
 class Point :                 # 
-    def __init__ ( self, Arg, Val=0, Num=0 ) :     # 
+    def __init__ ( self, Arg, Val=0, Num=0, initial=False) :     # 
         self.Arg  = Arg.copy()
         self.Val  = Val
         self.Num  = Num
         self.wieght = 0
+        # whether a point was in initial set
+        self.initial = initial 
       
     def prin(self) :
-        print ('Num', self.Num, 'Val', self.Val, 'Arg', self.Arg)
+        print ('Num', self.Num, 'Val', self.Val, 'Arg', self.Arg, "Is initial ", self.initial)
 
 
-def AddPoint ( points, Arg, Val ) :
-    poi = Point ( Arg, Val, len(points) )
+def AddPoint ( points, Arg, Val, initial=False) :
+    poi = Point ( Arg, Val, len(points), initial)
     grad = (Val - points[-1].Val) / distance (poi, points[-1])
     points.append ( poi )
     if points[-2].Val < points[-1].Val :    # swap
@@ -380,7 +382,6 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
     Returns:
         list[SvF Point objects]: list of all points calculated throughout optimization
     """
-
     par_der = []   # deriv
     global init_x_to_y_dict
     init_x_to_y_dict = dict()
@@ -395,17 +396,16 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
     Arg = np.array (Arg)
     dim = len (Arg)
 
-    curvPenal = 0.001
     print ("len", len (steps) )
     if len (steps)==0 : farWieght = 1   #  ��� ����������
     else:               farWieght = 2/dim/abs(steps[0])
-    #  exp ( - farWieght * dist...
+
     print ('\nstart  farWieght', farWieght)
     step = 1e37
     if CVNumOfIter == 0:
             AllArgs = SetAllArgs(Arg, InArg, stepsIN)
             Val = getVal (AllArgs)
-            points = [Point (Arg, Val, 0)]
+            points = [Point (Arg, Val, Num=0, initial=True)]
             for p in points:  p.prin()
             return points, nan
 
@@ -416,7 +416,7 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
             Val = getVal (AllArgs)
 #            Val = getVal ( Arg, itera )
             print ('\nITER', itera, 'start', Val, 'st', np.nan,  Arg, '\n')
-            points = [Point (Arg, Val, 0)]
+            points = [Point (Arg, Val, Num=0, initial=True)]
 
         elif itera <= dim :
             init_x_to_y_dict.clear()
@@ -424,7 +424,7 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
                 print(f"p.Arg = {p.Arg}")
                 print(f"p.Val = {p.Val}")
             init_x_to_y_dict.update({
-                tuple(np.round(np.asarray(p.Arg).flatten(), 8)): float(p.Val)
+                tuple(np.round(np.asarray(p.Arg).flatten(), 8)): (float(p.Val), p.initial)
                 for p in points
             })
             nArg = Arg.copy()
@@ -437,7 +437,7 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
                 AllArgs = SetAllArgs(nArg, InArg, stepsIN)
                 Val = getVal(AllArgs)
 #                Val = getVal ( nArg, itera )
-                Arg, mi, grad = AddPoint ( points, nArg, Val )
+                Arg, mi, grad = AddPoint ( points, nArg, Val, initial=True)
                 print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
                 if mi != '***' : break
                 if attempt != Nattempt-1 :
@@ -454,12 +454,15 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
     
     print(f"dim = {dim}, CVNumOfIter = {CVNumOfIter}, len(points) = {len(points)}")
 
+    # Count number of initial points
+    initial_n = len(points) 
+
     # Main optimization loop with spotoptim
     if CVNumOfIter > dim:
         # Update of cached initial points in the global dictionary last time.
         init_x_to_y_dict.clear()
         init_x_to_y_dict.update({
-            tuple(np.round(np.asarray(p.Arg).flatten(), 8)): float(p.Val)
+            tuple(np.round(np.asarray(p.Arg).flatten(), 8)): (float(p.Val), p.initial)
             for p in points
         })
 
@@ -482,7 +485,7 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
             fun=getVal,
             bounds=bounds,
             acquisition=co.Acquisition_mode,
-            max_iter=CVNumOfIter - dim - 1 + X_init.shape[0],
+            max_iter=CVNumOfIter + 1, #- 1 + X_init.shape[0],
             n_initial=0,
             selection_method='distant',
             n_jobs=1,
@@ -494,7 +497,7 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
         print(f"points = {points}, result.X = {result.X}, result.y = {result.y}")
 
         # Add points evaluated in optimization to an array of initial points
-        new_points = points + [Point(result.X[i], result.y[i], i+X_init.shape[0]) for i in range(result.X.shape[0])]
+        new_points = points + [Point(result.X[i], result.y[i], i, initial=False) for i in range(initial_n, result.X.shape[0])]
         print(f"Args of result points: ", [p.Arg for p in new_points])
         print(f"Vals of result points: ", [p.Val for p in new_points])
 
@@ -513,9 +516,8 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
         # For 2 regularization coefficients plot spotoptim 2D graph of the surrogate surface and prediction certainty 
         if dim == 2:
             plot_surrogate(opt, show=ShowGraphs)
-            if ShowGraphs == False:
-                plt.savefig("Surrogate_2D_surface.png", dpi=200)
-                plt.close()
+            plt.savefig("Surrogate_2D_surface.png", dpi=200)
+            plt.close()
 
 
         points = new_points
@@ -528,7 +530,8 @@ def SurMinMethod ( CVNumOfIter, stepsIN,  InArg, getVal, Task=None) :
 def SurMinOld ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     """
     Old self-written version of optimization process by Sokolov.
-    Left currently for comparison. Unchanged.
+    Left currently for comparison. Changes were only made in the form of addition
+    of initial flag to points.
     """
     old_points = []
     old_cCos = []
@@ -558,7 +561,7 @@ def SurMinOld ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     if CVNumOfIter == 0:
             AllArgs = SetAllArgs(Arg, InArg, stepsIN)
             Val = getVal ( AllArgs, -1 )
-            points = [Point (Arg, Val, 0)]
+            points = [Point (Arg, Val, 0, initial=True)]
             for p in points:  p.prin()
             return points, nan
 
@@ -568,7 +571,7 @@ def SurMinOld ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
             Val = getVal ( AllArgs, itera )
 #            Val = getVal ( Arg, itera )
             print ('\nITER', itera, 'start', Val, 'st', np.nan,  Arg, '\n')
-            points = [Point (Arg, Val, 0)]
+            points = [Point (Arg, Val, 0, initial=True)]
 
         elif itera <= dim :
             nArg = Arg.copy()
@@ -581,7 +584,7 @@ def SurMinOld ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
                 AllArgs = SetAllArgs(nArg, InArg, stepsIN)
                 Val = getVal(AllArgs, itera)
 #                Val = getVal ( nArg, itera )
-                Arg, mi, grad = AddPoint ( points, nArg, Val )
+                Arg, mi, grad = AddPoint ( points, nArg, Val, initial=True)
                 print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
                 if mi != '***' : break
                 if attempt != Nattempt-1 :

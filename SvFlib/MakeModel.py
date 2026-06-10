@@ -76,7 +76,6 @@ def COMPILE_RUN_option(buf):
             else :
                 print('Для ', key, ' должно писать =True или =False а не ', val)
                 exit(-1)
-    #print(f"НАПИСАЛ СюДААА {writeBuf}")
     Swr(writeBuf)
 
 
@@ -112,6 +111,22 @@ def WriteCV(buf):
             SvF.numCV += 1
             wr('\n    if len (SvF.CV_NoRs) > 0 :')  # 23.11
             wr('        Gr.mu'+str(SvF.numCV)+' = py.Param ( range(SvF.CV_NoRs['+str(SvF.numCV)+']), mutable=True, initialize = 1 )')   #  23.11
+
+def WriteCompare(buf):
+    keys = [['ResFilesToCompare',    'ResFilesToCompare',         None],
+            ['TailStart',      'Tail_start',           None]
+            ]
+
+    if len(buf) == 0: return
+    if buf[-1:] == ';': buf = buf[:-1]
+    buf = buf.replace(';;',';')
+    for opt in buf.split(';'):
+        key, eq, val = getKeyFromBuf (keys, opt)
+        if key is None or eq == '':
+            print ("Unknown key or no \'=\' in ", opt, '.....', key, eq, val)
+            exit (-1)
+
+        setattr(co, key, val)
 
 
 def WritePenalty ( buf ):       # Penalty:   [Inf.Period, Imm.Period]=0.999; RR=7;    SvF.resF = None

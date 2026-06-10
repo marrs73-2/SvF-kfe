@@ -64,7 +64,8 @@ while (1) :
     # Stop reading of .mng file if it ended or EoF flag was met
     else :  
         # If COMPARE: section was used in .mng start launch results comparison of calculated tasks
-        if SvF.ResToCompare != []:
+        print(f"SvF.ResFilesToCompare={SvF.ResFilesToCompare}")
+        if SvF.ResFilesToCompare != []:
             compare_results()
         break
 

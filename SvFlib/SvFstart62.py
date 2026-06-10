@@ -107,7 +107,10 @@ def SvFstart19 ( Task ) :
         # Write all points to a .res file
         with open(co.resF,'a') as f:     
             f.write( 'Points:' )
-            for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')
+            for p in points :  
+                f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg))
+                if p.initial == True: f.write(" INITIAL")
+                f.write("\n")
 
     Task.ReadSols('')
     Gr = Task.Gr

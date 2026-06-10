@@ -461,7 +461,8 @@ def ReadMng ( ) :
     elif Is(Q, 'DRAW:'):  Swr('Task.Draw ( \'' + buf + '\' )')
     elif Is(Q, 'PLOT:'):  WritePLOT (Treat_FieldNames(buf)) #( buf )
     elif Is(Q, 'COMPARE:'): #kfe_added
-        SvF.ResToCompare = buf
+        WriteCompare(buf)
+        #SvF.ResFilesToCompare = buf
 
 
     elif Is(Q, "MakeSets_byParam") :                #  out of date      24-12-26
