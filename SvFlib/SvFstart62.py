@@ -18,7 +18,7 @@ import ssop_config
 from CVSets  import *
 from GaKru   import *
 import SurMin
-from SurMin  import SurMinMethod, SurMinOld
+from SurMin  import SurMinMethod, SurMinOld, SetAllArgs
 from Pars    import *
 from Tools   import *
 from Task    import Var_to_Grd, FillNaNAll, setUse_var
@@ -88,9 +88,22 @@ def SvFstart19 ( Task ) :
     # Make solver for low-level of surrogate optimization
     co.optFact = Factory(SvF.SolverConfigFileNames[SvF.SolverNameLow], co.SolverNameLow)
 
-    # optStep is basically Penalty, but a little smaller. Idk what was it for...
+    # Set initial optimization steps for each dimension based on value of initial points 
+    # If it's set a string like "0.01". Only used in old optimization algorithm as a step array.
+    # If it's set manualy and step is 0 for some dimension, then the according variable's initial value isn't
+    # optimized at all.
     if type(co.OptStep) is str :
         co.OptStep = [float(co.OptStep) * p for p in co.Penalty[:]]
+
+    # Distinguish variables being optimized from the ones which are strictly set.
+    # Arg and steps arrays are copies from co.Penalty and co.OptStep without strictly set variables.
+    arg = []
+    steps = []
+    for ia, a in enumerate(co.Penalty) :
+        if co.OptStep[ia] != 0 :
+            arg.append(a)
+            steps.append(co.OptStep[ia])
+    arg = np.array (arg)
 
     if co.CVNumOfIter < 0: pass
     # If iterations number is set to zero then just calculate CVError of initial Penalty without optimization
@@ -100,13 +113,13 @@ def SvFstart19 ( Task ) :
         # Start surrogate optimization to find better regularization parameters if iterations are > 0.
         # Two ways of optimization are available: 1) new based on spotoptim module 2) old self-written
         if co.Use_spotoptim == True:
-            points = SurMinMethod ( co.CVNumOfIter, co.OptStep, co.Penalty, get_sigCV_for_spotoptim, Task )
+            points = SurMinMethod ( co.CVNumOfIter, arg, steps, get_sigCV_for_spotoptim, Task )
         else:
-            points, step = SurMinOld ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV, Task )
+            points, step = SurMinOld ( co.CVNumOfIter, arg, steps, co.ExitStep, get_sigCV, Task )
 
         # Write all points to a .res file
         with open(co.resF,'a') as f:     
-            f.write( 'Points:' )
+            f.write( 'Points:\n' )
             for p in points :  
                 f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg))
                 if p.initial == True: f.write(" INITIAL")
@@ -235,7 +248,12 @@ def getEstimCV(Gr) :
         return Estim
 
 
-def get_sigCV( Penal, itera):
+def get_sigCV(Penal_incomplete, itera):
+    print(f"Penal = {Penal_incomplete}",
+          f"co.Penalty = {co.Penalty}", 
+          f"co.OptStep = {co.OptStep}")
+    Penal = SetAllArgs(Penal_incomplete, co.Penalty, co.OptStep)
+
     co.CV_Iter = itera
     Task = co.Task
 #    reload (Model)
@@ -355,8 +373,9 @@ def get_sigCV( Penal, itera):
                     Task.print_res(Task, Penal, f)
     return Estim
 
-def get_sigCV_kfe( Penal):
-    print_here = False
+def get_sigCV_kfe(Penal_only_optimized):
+    Penal = SetAllArgs(Penal_only_optimized, co.Penalty, co.OptStep)
+
     Task = co.Task
     Task.ReadSols('')
 
@@ -424,13 +443,20 @@ def suppress_print(func):
     return wrapper
 
 #@suppress_print
-def get_sigCV_for_spotoptim(Penal):
-    co.CV_Iter += 1
-    #Penal = [[0.9]]
-    print(f"PRINTING init_x_to_y_dict: on {co.CV_Iter} = {SurMin.init_x_to_y_dict}, \n Penal = {Penal}")
-    Penal = np.atleast_2d(np.array(Penal))
-    n_samples = Penal.shape[0]
-    if n_samples > 1:
+def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
+    Penal_only_optimized = np.atleast_2d(np.array(Penal_only_optimized))
+    print(f"Penal_only_optimized = {Penal_only_optimized}",
+          f"co.Penalty = {co.Penalty}", 
+          f"co.OptStep = {co.OptStep}")
+    print(f"PRINTING init_x_to_y_dict: on {co.CV_Iter} = {SurMin.init_x_to_y_dict}")
+    if iter: co.CV_Iter = iter
+    else: co.CV_Iter += 1
+    if Penal_only_optimized.shape[0] == 1:
+        if Penal_only_optimized.ndim == 2:
+            Penal_only_optimized = Penal_only_optimized[0]
+        Penal = SetAllArgs(Penal_only_optimized, co.Penalty, co.OptStep)
+        Penal = np.atleast_2d(np.array(Penal))
+    else:
         print("В get_sigCV передано несколько точек - возвращаю значения для точек инициализации")
         print(f"Массив возвращаемых значений: {np.array(list(SurMin.init_x_to_y_dict.values()))}")
         return np.array(list(SurMin.init_x_to_y_dict.values()))

@@ -15,14 +15,15 @@ optFact = None # созданный солвер для решения зада�
 # Словари для связки конфигураций солверов с их названиями
 ipopt_config = {  "linear_solver"              : 'ma57'\
                  , 'max_iter'                   : 50000 \
-                 , "print_level"                : 0     \
+                 , "print_level"                : 6     \
                  , 'warm_start_init_point'      : 'yes' \
                  , 'warm_start_bound_push'      : 1e-6 \
                  , 'warm_start_mult_bound_push' : 1e-6 \
                  , 'constr_viol_tol'            : 1e-4 \
                  , 'mu_init'                    : 1e-6 \
-                 , "tol"                        : 1e-9 \
-                 , 'print_user_options'         : 'yes'
+                 , "tol"                        : 1e-6 \
+                 , 'print_user_options'         : 'yes' \
+                 , 'halt_on_ampl_error': 'yes'
                 }
 
 scip_config = {  "display/verblevel" : 5 \
@@ -46,6 +47,7 @@ max_workers = 6
 
 jobId_s = []
 maxJobs = 0
+DeleteServerJobs = True
 
 ShowAll = True
 DrawFileName = ''
@@ -153,9 +155,10 @@ OptStep      = '0.01'
 # spotoptim optimization parameters
 Use_spotoptim = True
 Acquisition_mode = "y"
-Low_bound = 1.e-3
-High_bound = 1
+Low_bound = 1.e-4
+High_bound = 10
 Show_spotoptim_graphs=False
+Initial_points = "Old"
 
 mngF = ''
 

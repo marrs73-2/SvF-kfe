@@ -10,7 +10,7 @@ SvF.path_SvF_Lib            = prog_name[: prog_name.rfind('/')]             #   
 SvF.path_SvF                = SvF.path_SvF_Lib[: SvF.path_SvF_Lib.rfind('/')+1]     #   /home/sokol/D/SvF/
 
 SvF.tmpFileDir      = SvF.path_SvF + 'TMP/'
-SvF.token           = SvF.path_SvF + "pyomo-everest/python-api" +'/.token'
+SvF.token           = "/home/marrs73/codingIttp/MySvF/python-api/.token30d" #SvF.path_SvF + "pyomo-everest/python-api" +'/.token'
 SvF.startDir        = os.getcwd()
 if platform.system() == 'Windows':   SvF.platform = 'Win'       # 2022.05
 

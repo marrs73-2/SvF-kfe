@@ -4,6 +4,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def find_res_files():
     """
     Find all .res files in the current directory
@@ -20,12 +21,13 @@ def find_res_files():
     return res_files
 
 
-def get_points(filename):
+def get_points(filename, only_initial=False):
     """
     Extract information about results of optimization from .res file
 
     Args:
         filename (str) - full name (with .res) of results file
+        only_initial (bool) - if True returns data only for initial points
 
     Returns:
         ndarray[int] - array of number of iterations of optimization
@@ -33,7 +35,7 @@ def get_points(filename):
         ndarray[list[float]] - array of points evaluated in optimization
         int - number of initial points
     """
-
+        
     with open(filename) as f:
         lines = f.readlines()
 
@@ -42,22 +44,55 @@ def get_points(filename):
     args = []
     initial_count = 0
     
+    buffer = ""
+    points_extract = False
+    
     # Read .res file line by line
     for line in lines:
-            # Find lines with optimization point data in them using regular expression
-            match = re.search(r'Num\s+(\d+)\s+Val\s+([\d\.]+)\s+Arg\s+\[([^\]]+)\]', line)
+        # Line processing begins only if block containing point data is reached
+        if re.search(r'^Points:', line):
+            points_extract = True
+        elif re.search(r'^addStrToRes:', line):
+            points_extract = True
 
+        if points_extract == False:
+            continue 
+
+        # If line contains start of a point data then make it the buffer
+        if re.search(r'Num\s+\d+\s+Val', line):
+            buffer = line.strip()
+        else:
+            # Else add line to the previous buffer (because single point data can span multiple lines)
+            buffer += " " + line.strip()
+        
+        # Extract data from the buffer if points data in it is complete
+        if buffer and ']' in buffer and '[' in buffer:
+            # Теперь buffer содержит целую запись, даже если она была на нескольких строках
+            
+            # Skip the line if it doesn't contain initianl point and only initial points are needed
+            if only_initial and 'INITIAL' not in buffer:
+                buffer = ""
+                continue
+            
+            # Find lines with optimization point data in them using regular expression
+            match = re.search(r'Num\s+(\d+)\s+Val\s+([\d\.]+)\s+Arg\s+\[([^\]]+)\]', buffer)
+            
             # Extract data for found points
             if match:
                 iterations.append(int(match.group(1)))
                 vals.append(float(match.group(2)))
-                args.append(match.group(3))
-                # Проверяем наличие INITIAL в той же строке
-                if 'INITIAL' in line: initial_count += 1
+                args.append([float(arg) for arg in match.group(3).split()])
+                
+                # Check if the point is in initial set
+                if 'INITIAL' in buffer:
+                    initial_count += 1
+            
+            # Clear buffer for the next points
+            buffer = "" 
     
     # Sort points by iteration number (they're sometimes mixed in process)
     sorted_indices = np.argsort(iterations)
-
+    
     return (np.array(iterations)[sorted_indices],
             np.array(vals)[sorted_indices],
             np.array(args)[sorted_indices],
@@ -140,11 +175,13 @@ def compare_results():
     ax1.set_ylabel("CVError", fontsize=11)
     ax2.set_xlabel("Iteration", fontsize=11)
     ax2.set_ylabel("CVError", fontsize=11)
+    ax1.ticklabel_format(style='plain', useOffset=False, axis='both')
+    ax2.ticklabel_format(style='plain', useOffset=False, axis='both')
 
     title1 = "Optimization Progress"
     ax1.set_title(title1, fontsize=12)
 
-    title2 = "Tail of optimization Progress"
+    title2 = "Tail of Optimization Progress"
     ax2.set_title(title2, fontsize=12)
 
     ax1.legend(fontsize=10)

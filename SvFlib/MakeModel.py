@@ -56,7 +56,8 @@ def COMPILE_RUN_option(buf):
             ['LowBound',     'Low_bound',          None],
             ['HighBound',     'High_bound',          None],
             ['ShowSpotoptimGraphs',     'Show_spotoptim_graphs',          'True'],
-            ['UseSpotoptim',     'Use_spotoptim',          'True']
+            ['UseSpotoptim',     'Use_spotoptim',          'True'],
+            ['InitialPoints',     'Initial_points',          'NoName']
             ]
 
     if len(buf) == 0: return
