@@ -107,7 +107,7 @@ def compare_results():
     Initial points are scattered in the left area and optimization progress 
     is shown as the line of best result over the iterations for each task.
     """
-        
+
     # Get names of processed .res files
     if co.ResFilesToCompare.lower() == "All".lower():
         # If All option was used find all .res files in the directory
@@ -117,15 +117,31 @@ def compare_results():
         target_res_files = co.ResFilesToCompare.strip().strip('[]').split(',')
         target_res_files = [file.strip().strip('"\'') for file in target_res_files]
 
+    # define colors for each graph
+    color_list = []
+    if co.ResGraphColors != []:
+        color_list = co.ResGraphColors
+        color_list = color_list.strip().strip('[]').split(',')
+        color_list = [color_name.strip().strip('"\'') for color_name in color_list]
+        
+        if len(color_list) != len(target_res_files):
+            print("Error in choosing colors for comparison graph")
+            color_list = []
+    if color_list == []:
+        default_colormap = plt.cm.tab10
+        color_list = [default_colormap(i % default_colormap.N) for i in range(len(target_res_files))]
+
     print(f"Target res files = {target_res_files}")
     print(f"co.Tail_start = {co.Tail_start}")
+    print(f"co.ResGraphColors = {co.ResGraphColors}")
+    print(f"co.color_list = {color_list}")
     tail_start = int(co.Tail_start)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     did_plot_initial = False
    
     # Draw data from each .res file
-    for res_file in target_res_files:
+    for i, res_file in enumerate(target_res_files):
         iterations, vals, args, initial_count = get_points(res_file)
         print(f"In {res_file:}")
         print(f"Vals: {vals}")
@@ -156,11 +172,13 @@ def compare_results():
         # Start the red line after initial design
         x_best = iterations[initial_count:]
         y_best = best_so_far[initial_count:]
+
         ax1.plot(
             x_best,
             y_best,
             linewidth=2,
             label=res_file,
+            color=color_list[i]
         )
 
         if (tail_start > initial_count):
@@ -169,6 +187,7 @@ def compare_results():
                 y_best[tail_start - initial_count:],
                 linewidth=2,
                 label=res_file,
+                color=color_list[i]
             )
 
     ax1.set_xlabel("Iteration", fontsize=11)

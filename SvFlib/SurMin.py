@@ -25,21 +25,6 @@ import Compare
 import COMMON as co
 
 
-#   for index, string in enumerate(strings):
-#   np.linspace(0, 2, 9)  # 9 ����� �� 0 �� 2 ������������
-
-# ������������� ��������� 2 ������� pol ( C, B1, B2) 
-# 1) ��������� ��������� - ���������� ��� �����  B1i, B2i, SIGi
-# 2) ��������� �������� ���������������� ������������ 2-��� �������:
-#    - ����� ����������� � ������� ������ (��� ������ ����� �� �������� ��������, ��� ������ ���)
-#    - ����������� ����� �� �������� ����1������� (�� �������� ������������� ��� ������������ ������),
-#      �������� �������� ����������� ���, ����� ������� �� �������� � ���������� ����� ��� ������ ��������.
-# 3) ����������� ����� �������� B1 � B2, ��� ��� ����������� SIG. ����������� �� ��� 2.
-# ����� �� ���-�� �������� ��� �� �������� ���� (���������� �����)
-# ����� �   (sum ( (pol ( C, B1i, B2i) - SIGi))**2/ri**(2+q) i in range(I)) + ??? (C20+C02+C11)*reg => min
-#  ��� ri = sqrt ()
-#
-
 coprintL = 0    # ����� ���������� �� ������
 #from pyomo.opt import SolverFactory
 
@@ -392,7 +377,7 @@ def evaluate_initial_points(CVNumOfIter, inArg, steps, getVal, dim, iter=None, b
             elif itera <= dim :
                 nArg = inArg.copy()
                 step_i = steps[itera-1]
-                Nattempt = 4
+                Nattempt = 2
                 for attempt in range (Nattempt) :
                     nArg[itera-1] += step_i
                     AllArgs = SetAllArgs(nArg, co.Penalty, co.OptStep)
@@ -412,18 +397,25 @@ def evaluate_initial_points(CVNumOfIter, inArg, steps, getVal, dim, iter=None, b
                     print('par_der', par_der, 'min_step', min_step, step)
 
     # Extract already evaluated set of initial points from a .res file if chosen               
-    elif co.Initial_points[-4:] == ".res":
+    elif co.Initial_points.strip()[-4:] == ".res":
         print(f"Initial points are extracted from {co.Initial_points}")
-        res_file = co.Initial_points
-        iterations, vals, args, initial_count = Compare.get_points(res_file, only_initial=True)
+        mode, res_file = (x.strip() for x in co.Initial_points.strip().split(":"))
 
-        for iteration in range(initial_count):
+        if mode.lower() == "initial":
+            iterations, vals, args, initial_count = Compare.get_points(res_file, only_initial=True)
+        elif mode.lower() == "all":
+            iterations, vals, args, initial_count = Compare.get_points(res_file, only_initial=False)
+
+        for iteration in range(len(vals)):
             args_to_append = np.array([])
             for n, arg in enumerate(args[iteration]):
                  if co.OptStep[n] != 0:
                     args_to_append = np.append(args_to_append, arg)
 
-            points.append(Point(args_to_append, vals[iteration], iteration, initial=True))
+            if iteration < initial_count:
+                points.append(Point(args_to_append, vals[iteration], iteration, initial=True))
+            else:
+                points.append(Point(args_to_append, vals[iteration], iteration, initial=False))
     
     # Use uniform distribution from spotoptim
     elif (co.Initial_points.strip().lower().startswith("qms_lhs") == True or 
@@ -519,7 +511,7 @@ def SurMinMethod ( CVNumOfIter, inArg, steps, getVal, Task=None) :
             selection_method='distant',
             n_jobs=1,
             verbose=True,
-            tensorboard_log=True,
+            tensorboard_log=False,
             tensorboard_clean=True
         )
 

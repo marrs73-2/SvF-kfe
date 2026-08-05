@@ -13,17 +13,16 @@ SolverScripts = {'ipopt':'docker-ipopt.sh', 'scip':'docker-scip.sh'}
 optFact = None # созданный солвер для решения задач низкого уровня
 
 # Словари для связки конфигураций солверов с их названиями
-ipopt_config = {  "linear_solver"              : 'ma57'\
+ipopt_config = {  "linear_solver"              : 'ma97'\
                  , 'max_iter'                   : 50000 \
-                 , "print_level"                : 6     \
+                 , "print_level"                : 4     \
                  , 'warm_start_init_point'      : 'yes' \
                  , 'warm_start_bound_push'      : 1e-6 \
                  , 'warm_start_mult_bound_push' : 1e-6 \
                  , 'constr_viol_tol'            : 1e-4 \
                  , 'mu_init'                    : 1e-6 \
-                 , "tol"                        : 1e-6 \
-                 , 'print_user_options'         : 'yes' \
-                 , 'halt_on_ampl_error': 'yes'
+                ,  "tol"                        : 1e-6 \
+                 , 'print_user_options'         : 'yes' #, 'halt_on_ampl_error': 'yes'
                 }
 
 scip_config = {  "display/verblevel" : 5 \
@@ -151,6 +150,7 @@ DataPath = ''
 
 ExitStep     =   1e-7
 OptStep      = '0.01'
+CoeffPower = 4
 
 # spotoptim optimization parameters
 Use_spotoptim = True
@@ -165,6 +165,7 @@ mngF = ''
 resF = ''    #      #resF = None - not read Penalty; resF = '' - make resF copy from .mng  file name
 ResAux = ''
 ResFilesToCompare = []
+ResGraphColors = []
 Tail_start = []
 Penalty      =  []
 OptNames = []

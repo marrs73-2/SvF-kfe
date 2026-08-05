@@ -3,6 +3,7 @@
 from Lego import *
 import sympy as sy
 from itertools import combinations_with_replacement
+import COMMON as co
 
 
 class smbFun (BaseFun) :
@@ -229,9 +230,15 @@ class smbFun (BaseFun) :
         for d0 in range(self.dim):
             for d1 in range(d0, self.dim) :
                 if d0 == d1 :
-                    ret += bets[d0] ** 2 * bets[d1] ** 2 * self.INT2D(d0,d1)
+                    if co.CoeffPower == 4:
+                        ret += bets[d0] ** 2 * bets[d1] ** 2 * self.INT2D(d0,d1)
+                    elif co.CoeffPower == 2:
+                        ret += bets[d0] * bets[d1] * self.INT2D(d0,d1)
                 else :
-                    ret += bets[d0] ** 2 * bets[d1] ** 2 * self.INT2D(d0,d1) * 2
+                    if co.CoeffPower == 4:
+                        ret += bets[d0] ** 2 * bets[d1] ** 2 * self.INT2D(d0,d1) * 2
+                    elif co.CoeffPower == 2:
+                        ret += bets[d0] * bets[d1] * self.INT2D(d0,d1) * 2
         return ret
 
 

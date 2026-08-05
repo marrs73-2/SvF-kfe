@@ -125,6 +125,7 @@ def SvFstart19 ( Task ) :
                 if p.initial == True: f.write(" INITIAL")
                 f.write("\n")
 
+    #
     Task.ReadSols('')
     Gr = Task.Gr
 
@@ -134,15 +135,12 @@ def SvFstart19 ( Task ) :
         for s in co.notTrainingSets[-1] : Gr.mu0[s]=0
         NoRnoB = sum ( Gr.mu0[s]() for s in Gr.F[0].sR )
         print ('***** MSD_NoBorder', np.sqrt(Gr.F[0].NoR* Task.defMSDVal ( Gr, 0 ) /NoRnoB)*Gr.F[0].V.sigma)
-#        print '***** MSD_NoBorder', np.sqrt(Gr.F[0].NoR*Gr.F[0].MSD()()/NoRnoB)*Gr.F[0].V.sigma
         for s in Gr.F[0].sR : Gr.mu0[s]=1
 
     for f in Task.Funs :
       if not f.param :
-#        f.SaveTbl('')
         if co.SavePoints : f.SavePoints()
-#        if co.SaveDeriv and f.type != 'p' :  f.SaveDeriv ( "" )
-#        if co.SaveGrid=='Y' and f.dim == 2 and f.type != 'p':     f.SaveGrid ( co.TranspGrid, '' )
+
 
     # Draw optimization graph (currently only for 1D) with all points evaluated in optimization
     # and other evenly spaced additionaly evalueted points 
@@ -249,30 +247,41 @@ def getEstimCV(Gr) :
 
 
 def get_sigCV(Penal_incomplete, itera):
+    """
+    Calculates cross-validation error.
+
+    Args:
+        Penal_incomplete (float) - regularization coefficient for the current task, yet to be 
+            completed by static coefficients.
+        itera (int) - iteration number
+
+    Returns:
+        float: cross-validation error
+    """
     print(f"Penal = {Penal_incomplete}",
           f"co.Penalty = {co.Penalty}", 
           f"co.OptStep = {co.OptStep}")
+    
+    # Get complete set of regularization coefficients, including unoptimized.
     Penal = SetAllArgs(Penal_incomplete, co.Penalty, co.OptStep)
 
     co.CV_Iter = itera
     Task = co.Task
-#    reload (Model)
+
+    # Load data from .sol files to .grd if they're present. This optimizes solving of following tasks.
     Task.ReadSols('')
-#    SvF.Penalty = Penal
+
     if not (SvF.feasibleSol is None) : SvF.feasibleSol(Penal)
 
-    print ('for Penal: ', Penal ) #, end=' ')
 
+    # Что за режим?
     if SvF.OptMode == 'SurMinOpt' :
-  #      co.Use_var = True       # 29
-        setUse_var(True)       # 25.10
-
+        setUse_var(True)  
         Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
         Grd_to_Var()
-        #co.Use_var = False       # 29
-        setUse_var(False)  # 25.10
+        setUse_var(False)  
 
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])      
         Gr.solutions.load_from(resultss[0])
         Var_to_Grd()
         Task.SaveSols('.tmp')
@@ -280,27 +289,35 @@ def get_sigCV(Penal_incomplete, itera):
         print ('OBJ',Gr.OBJ())
         Estim = Gr.OBJ()
 
+    # Main mode of this program
     elif SvF.OptMode == 'SvF':
-        
+        # For every variable in Task fill missing values with ones
         FillNaNAll ()
-     #   co.Use_var = True       # 29
-        setUse_var(True)  # 25.10
 
-        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
+        # Create the Model described in StartModel.py file with current Penalty
+        setUse_var(True)  
+        Gr = Task.createGr(Task, Penal)
+        
         Grd_to_Var()
-        #        co.Use_var = False       # 29
-        setUse_var(False)  # 25.10
+        setUse_var(False) 
 
         for fu in Task.Funs :  fu.CVresult = []
 
         if itera <= 0 : printS (' Load on Start ');   printMSD()
 
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        # Solve problem on set of all points. Used for obtaining good initial solution for subsequent problems.
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])      
+
+        # Load solutions into model
         Gr.solutions.load_from(resultss[0])
+
+        # 
         Var_to_Grd()
 
+        # Save solutions into temporary file
         Task.SaveSols('.tmp')
 
+        # Print results for initial problem
         print ('OBJ',Gr.OBJ())
         printMSD()
 
@@ -336,6 +353,7 @@ def get_sigCV(Penal_incomplete, itera):
 
         else : Estim = -1
 
+    # Что за режим?
     elif SvF.OptMode == 'SurMin':
        Estim = SvF.ObjectiveFun (Penal)
 
@@ -473,7 +491,7 @@ def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
     if not (co.feasibleSol is None) : co.feasibleSol(Penal)
 
     if co.OptMode == 'SvF':
-
+        FillNaNAll ()
         setUse_var(True)  # 25.10
 
         Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
@@ -492,7 +510,10 @@ def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
         print ('OBJ',Gr.OBJ())
         printMSD()
 
-
+        if not Task.OBJ_U is None :
+            Estim = Task.OBJ_U(Task)()
+            print ('**************KK=', Estim)
+        
         if co.CVNumOfIter != 0 :
             star = time.time()
 
