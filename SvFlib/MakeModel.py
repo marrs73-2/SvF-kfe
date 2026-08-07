@@ -173,14 +173,15 @@ def WritePLOT ( plots_str ) :
     if plots_str == '*' :
         Swr('Task.PlotAll ( )')
         return
-    plots = plots_str.split("+")
+ #   plots = plots_str.split("+")
+    plots = smart_split(plots_str,'+')
     print (plots)
     str = 'Plot( [ '
     for ipl, pl in enumerate (plots):
         if ipl==0: str += '[ '
         else :     str += ', ['
   #      print (pl)
-        parts_pl = smart_split(pl)   #pl.split(',')
+        parts_pl = smart_split(pl,',')   #pl.split(',')
         print (parts_pl)
         ob_Otype = None
         for np, p in enumerate (parts_pl):
@@ -440,10 +441,6 @@ def make_Polynome (smbF, fun) :             #  Polynome (6, c, X, V) ###########
                 elif arg == 1: pol += '*' + args[iarg]
  #       print (pol)
     pol = ' ( ' + pol + ' ) '
-#        print (find_combinations(len(args), d))
- #   1/0
-
-
 
  #   pol = ''
   #  for p in range (degr+1) :
@@ -453,7 +450,7 @@ def make_Polynome (smbF, fun) :             #  Polynome (6, c, X, V) ###########
   #  print (pol)
 
  #   print (smbF[0:beg]+pol+smbF[end+1:])
-    if getFun (coef) is None :         #  coef  is not defined
+    if getFun (coef) is None :         #  coef  is not defined          пишем  tensor
         wr_text = coef + '[' + str(coef_num) + ']'
         if fun.ReadFrom !='':
             if fun.ReadFrom == '*': wr_text += ";"+' << ' + coef + '.sol'
@@ -978,7 +975,9 @@ def WriteVarParam26 ( buf, param ) :
                             Finitialize = val
                 elif '<<'== key :    #  and eq == '':    ReadFrom = 'abc.sol'   25.10.19
                         if smbFun == '':
-                            if val is None :  val = fun.NameArds() + '.sol'
+                            if val is None :
+                                if f_type == 'tensor' : val = fun.name + '.sol'
+                                else :                    val = fun.NameArds() + '.sol'
                             if val[0] != '"' and val[0] != "'" :     ReadFrom = '\"' + val + '\"'  #  добавляем кавычки
                             else                               :     ReadFrom = val
                         else :
@@ -1113,7 +1112,8 @@ def WriteVarParam26 ( buf, param ) :
         if f_type != 'tensor' :
             for a in fun_args:          #  проверяем Аргументы
                 if findSetByName ( Task.Sets,a ) is None:
-                    WriteSet_24_12(a + '=[,,]')   #WriteGrid27 ( a + '=[,,]')              #    Дописываем  Set
+ #                   if fun.ReadFrom == '' :                             # если  нет  <<  - на потом
+                        WriteSet_24_12(a + '=[,,]')   #WriteGrid27 ( a + '=[,,]')              #    Дописываем  Set
 
         if f_type != 'tensor' :
           if dim == 1 and type(fun.A[0]) is str :        # Domain  <class 'str'>
@@ -2046,3 +2046,37 @@ def WritePolyline ( buf ) :
         Swr (str)
         from GIS import Polyline
         Polyline (None,None,None,buf[:first])           # для регистрации на этапе компиляции
+
+def WriteRESIDUAL(buf) :                #  26.07    RESIDUAL: DB, E, E(ROWNUM), hours  # -> RESID_E_hours.mng + .dat
+    pars = buf.split(',')
+    dbName = pars[0]
+    dataField = pars[1]
+    func = pars[2]
+    fun_rr = func[:-1] + '[rr])'
+    fun_rr = fun_rr.replace('(', '('+dbName+'.')
+    args = pars[3:]
+    fName = 'RESID_' + dataField
+    for p in args : fName += '_'+ p
+    Residual_fld = 'Residual_' + dataField
+
+    Swr(dbName + '.AddField ("'+Residual_fld+'")')              #   подготовка и запись таблицы
+    Swr('for rr in ' + dbName + '.sR:')
+    WriteString31('    '+dbName+'.'+Residual_fld+'[rr] = ' +dbName+'.'+ dataField + '[rr] - ' + fun_rr )
+    Swr(dbName+'.WriteSvFtbl("' + fName + '.dat")')
+    Swr(dbName + '.KillField ("' + Residual_fld + '")')
+
+    with (open( fName + '.mng', 'w') as f):                     #   mng file
+        f.write('SELECT * from ' + fName + '.dat\n')
+        for a in args :
+            f.write('SET: '+ a +' = [,,]\n')
+        f.write('VAR: '+ Residual_fld +'(' + ",".join(args) + ')\n')
+        f.write('CV:  NumOfSets = 7; 	#GroupByParam = "Dat"\n')
+        f.write('RUN: MaxIter = 11;    #  RunMode="S&S" \n')
+        f.write('OBJ: ' + Residual_fld + '.MSD() + ' + Residual_fld + '.Complexity('
+        +",".join(f"Penal[{i}]" for i in range(len(args))) + ')\n' )
+        if len(args) == 1 :
+            f.write('POLY: P1([0, ' +Residual_fld+ '.A[0].max], [0, 0])\n')
+            f.write('PLOT: '+Residual_fld+', dms=1 + P1, c = green\n')
+        else :
+            f.write('PLOT: ' + Residual_fld + ', dms=1\n')
+        f.write('EoF')

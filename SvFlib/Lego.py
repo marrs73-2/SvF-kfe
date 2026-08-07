@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 
 from __future__ import division
+
+import numpy as np
 #from   numpy import *
 #from   pyomo.environ import *
 import pyomo.environ as py
@@ -132,7 +134,7 @@ class BaseFun (Tensor) :
             print ('Неизвестный тип функции   ', self.type)
             exit (-1)
 #        print ( "Fun:"+self.V.name, "Type:"+self.type)
-        self.Oprint()
+#        self.Oprint()
 
 
         self.sR    = []           # множ записей табл
@@ -210,8 +212,8 @@ class BaseFun (Tensor) :
 
     def Norm01_to_Real ( self, ArS_01 ) :    #  [0,1] в  реальные
         return [ArS_01[i] * a.ma_mi + a.min  for i, a in enumerate(self.A)]
-        if self.ArgNorm  :  return  [(ArS_real[i]-a.min)/a.ma_mi for i, a in enumerate(self.A)]
-        else                    :  return ArS_real
+#        if self.ArgNorm  :  return  [(ArS_real[i]-a.min)/a.ma_mi for i, a in enumerate(self.A)]
+ #       else                    :  return ArS_real
 
 
     """
@@ -282,7 +284,7 @@ class BaseFun (Tensor) :
         if isnotNone(self.V.dat): dSize = len(self.V.dat)
         for a in self.A :
             if isnotNone(a.dat): dSize = len(a.dat)
-        print (dSize)
+#        print (dSize)
         if dSize == 0:
 #            print ('Nothing to Clean')
             return
@@ -629,8 +631,8 @@ class BaseFun (Tensor) :
         if self.dim == 2      : return self.gap[x,y]
 
     def AddGap ( self ) :
-        if self.dim == 1 :   self.gap = ones (  self.A[0].Ub+1,                 np.float64 )
-        if self.dim == 2 :   self.gap = ones ( (self.A[0].Ub+1, self.A[1].Ub+1),np.float64 )
+        if self.dim == 1 :   self.gap = np.ones (  self.A[0].Ub+1,                 np.float64 )
+        if self.dim == 2 :   self.gap = np.ones ( (self.A[0].Ub+1, self.A[1].Ub+1),np.float64 )
 
 
     def neNDTbyVal (self, xVal, yVal=None) :
@@ -1216,6 +1218,7 @@ class BaseFun (Tensor) :
 #      if self.type[0] == 'g'  or self.type == 'smbFun':   # 2505
 #      ArgNorm = self.ArgNorm
  #     self.ArgNorm = False
+#      print ("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", fName, self.type)
       fi, fName = self.File_SaveSol('.sol', fName)
       if not fi is None:
 #      if True :
@@ -1279,7 +1282,7 @@ class BaseFun (Tensor) :
     
       """
       fi.close()
-      if SvF.printL > 0 : print ("END of SaveSol to ", fName, self.type)
+  #    if SvF.printL > 0 : print ("END of SaveSol to ", fName, self.type)
 
  #     self.ArgNorm = ArgNorm
 
@@ -1287,10 +1290,10 @@ class BaseFun (Tensor) :
 
 
     def ReadSol ( self, fName='', printL=0 ) :
-      print(f"!!!!!!1 self.type = {self.type}")
-      if self.type in ['smbFun', 'Mixed']: #, 'gMixed']:  ########################## kfe_changed
+#     print ('ReadSol from  ',fName)
+      if self.type in ['smbFun', 'Mixed']:
+          self.var_to_grd()  ##########################
           return
- #     print ('self.Task.Mng.Prefix',fName)
       Prefix = SvF.Prefix
       if fName == '' :
           if self.type[0] == 'g':      # 2407
@@ -1303,6 +1306,7 @@ class BaseFun (Tensor) :
             return False
       head = fi.readline().split()
 #      print ("ReadSol from", fName,  head )
+
 ######################################################
       if head[0][0:4] == '#SvF' :    #New   бросил, не отладил...
          ver = head[0].split('_')
@@ -1359,6 +1363,7 @@ class BaseFun (Tensor) :
 #            print ("End of Fun.ReadSol from", fName)
             return
 ##############################################################################
+
       if self.type[0] == 'g' :         # 2407
   #      print ('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%', self.V.name, fName)
    #     print (self.grd)
@@ -1451,36 +1456,60 @@ class BaseFun (Tensor) :
       #if self.type == 'gMixed':    return  # kfe_changed
 #      print('IB*+++++++++++++', self.name, self.param)
 
+
       if self.dim==0 :
         if self.V.dat[0] != self.NDT :
                 self.grd = self.V.dat[0]
       elif self.dim==1 :
-#        print   (self.name, self.A[0].name, self.A[0].dat, self.sR)
+        self.grd[:] = np.nan
         for m in self.sR :
-#            print (m)
             if self.V.dat[m] == self.NDT or np.isnan (self.V.dat[m]): continue
-#            self.grd[int(floor(0.499999999 + self.A[0].dat[m]/self.A[0].step))] = self.V.dat[m]
             self.grd[self.A[0].IndByVal(self.A[0].dat[m])] = self.V.dat[m]
- #           print ('HH', m)
-        for x in self.A[0].NodS:   ####   ??????????????????
-            if self.fneNDT(x) == 0:
-                self.grd[x] = nan
-
       elif self.dim==2 :
+        self.grd[:,:] = np.nan
         for m in self.sR :
             if self.V.dat[m] == self.NDT or np.isnan (self.V.dat[m]):  continue
-#            self.grd [ int (floor(0.499999999 + self.A[0].dat[m]/self.A[0].step)),
- #                      int (floor(0.499999999 + self.A[1].dat[m]/self.A[1].step))
-  #                   ] = self.V.dat[m]
             self.grd [ self.A[0].IndByVal(self.A[0].dat[m]),                # не проверенр
                        self.A[1].IndByVal(self.A[1].dat[m])
                      ] = self.V.dat[m]
 
+      from scipy import ndimage
+      def fill_by_nearest_seed(grd, missing_value=np.nan):     # 2026.03
+          """
+          Заполняет многомерный массив значениями ближайших затравочных точек.
+          grd: ndarray
+              Массив, где в затравочных точках уже есть значения,
+              а в остальных — np.nan (или другой missing_value).
+          """
+          grd = np.asarray(grd)
 
+          if np.isnan(missing_value):
+              mask_missing = np.isnan(grd)
+          else:
+              mask_missing = (grd == missing_value)
+          # Для каждой пустой точки находим индексы ближайшей непустой
+          nearest_idx = ndimage.distance_transform_edt(
+              mask_missing,
+              return_distances=False,
+              return_indices=True
+          )
+          # Берём значения ближайших затравок
+          filled = grd[tuple(nearest_idx)]
+          return filled
+
+      if self.dim != 0:
+            self.grd = fill_by_nearest_seed(self.grd)
+
+      if self.dim == 1:
+            for x in self.A[0].NodS:  ####   ??????????????????
+                if self.fneNDT(x) == 0:
+                    self.grd[x] = nan
+      elif self.dim == 2:
         for y in self.A[1].NodS :
             for x in self.A[0].NodS :
                 if self.fneNDT(x,y)==0 :
                     self.grd[x,y] = nan
+
       self.grd_to_var()
 
 
@@ -2119,13 +2148,14 @@ class BaseFun (Tensor) :
 class Fun (BaseFun) :
     def __init__ (self, Vname='',  As=[], param=False, Degree=-1,  Finitialize = 1, DataReadFrom = '',Data=[],
                   Type='g', Domain = None, ArgNorm = True, ReadFrom = '' ) :
-        BaseFun.__init__ (self, Vname,  As, param, Degree,  Finitialize, DataReadFrom, Data,
-                  Type, Domain, ArgNorm, ReadFrom)
+        BaseFun.__init__ (self, Vname,  As, param, Degree,  Finitialize, DataReadFrom, Data, Type, Domain, ArgNorm, ReadFrom)
+
 
     def F ( self, ArS_real ) :
           if self.dim == 0:                           #  31
+#                print (self.grd[0],'&&&&&&&&&&&&&&&&&&&&&&&')
                 if SvF.Use_var: return self.var
-                else          : return self.grd
+                else          : return self.grd                   #    ?????????????????????????? [0]
  #         print (self.ArgNorm)
   #        1/0
    #       if self.ArgNorm :  ArS_real = self.Norm01_to_Real(ArS_real)

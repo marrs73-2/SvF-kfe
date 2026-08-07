@@ -3,7 +3,7 @@ from __future__ import division
 import subprocess
 
 import COMMON as SvF
-from pyomo.opt import SolverStatus
+import SvFconf as CONF
 
 from Task    import Grd_to_Var
 
@@ -24,6 +24,8 @@ def Factory (optFile, solverName):
     if optFile is None or SvF.RunMode[0] == 'L' or SvF.RunMode[2] == 'L' :
         opt = SolverFactory(SvF.SolverScripts[solverName])  #'server' :  SvF.LocalSolverName
         opt.options.update(SvF.SolverConfigSettings[solverName])
+        # opt = SolverFactory(CONF.LocalSolverName)  #'server' :  SvF.LocalSolverName
+        # opt.options.update( SvF.solverOptVal )
     if (not optFile is None) and \
         (SvF.RunMode[0] != 'L' or SvF.RunMode[2] != 'L'):
         #makeSolverOptionsFile(SvF.tmpFileDir + '/' + optFile, SvF.SolverRealName, SvF.solverOptVal)
@@ -104,22 +106,24 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
         def run_subTask(pName):
             if SvF.SolverNameLow == "ipopt":    pName_nl = pName + ".nl"
             elif SvF.SolverNameLow == "scip":   pName_nl = pName
+            # if CONF.SolverName.find('ipopt') >= 0:    pName_nl = pName + ".nl"
+            # elif CONF.SolverName.find('scip') >= 0:   pName_nl = pName
             else:
                 print("Solver Name ?")
                 exit(-17)
 
             print('Start', pName )
-            # original_cwd = os.getcwd()
-            # os.chdir(tmpFileDir)
-            # print(f"Changed to directory: {os.getcwd()}")
+
             print(SvF.SolverScripts[SvF.SolverNameLow] + ' ' + tmpFileDir + pName_nl + " -AMPL" +
                               " \"option_file_name=" + tmpFileDir + f"{SvF.SolverConfigFileNames[SvF.SolverNameLow]}\"") # !!!!!!!!!!!!!!
             
             subprocess.check_call(SvF.SolverScripts[SvF.SolverNameLow] + ' ' + tmpFileDir + pName_nl + " -AMPL" + 
                               " \"option_file_name=" + tmpFileDir + SvF.SolverConfigFileNames[SvF.SolverNameLow] + "\"", shell=True )
-            # subprocess.check_call(SvF.SolverName + ' ' + pName_nl + " -AMPL" +
-            #                   " \"option_file_name=" + "peipopt.opt\"", shell=True)
-            # os.chdir(original_cwd)
+
+            # subprocess.check_call(CONF.SolverName + ' ' + tmpFileDir + pName_nl + " -AMPL" +
+            #                   " \"option_file_name=" + tmpFileDir + "peipopt.opt\"", shell=True)
+
+
             return pName
     
 
@@ -128,7 +132,7 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
             for r in SvF.Resources:
                 SvF_resources.append(ssop_config.SSOP_RESOURCES[r])
             theSession = SsopSession(name      = SvF.TaskName + str(SvF.CV_Iter),
-                                     token     = SvF.token,
+                                     token     = CONF.token,
                                      resources = SvF_resources,
 
 ##                                     resources=[

@@ -25,6 +25,7 @@ from Lego_MixedFun import debug_write_end
 
 #from PyomoEverestEnv  import *
 #import COMMON as co
+from SvFconf import DrawMode
 
 import io
 from datetime import datetime
@@ -40,7 +41,8 @@ def ReadMng ( ) :
  to_logOut ( 'Start at   '+str(datetime.now()) )
 
 
- if SvF.EofTask == False :
+ # if SvF.EofTask == False :
+ if SvF.mngF == '' :
     SvF.mngF = MngFile()
 
  coMembers   = [ k for k in SvF.__dict__.keys() if not k.startswith("__")]        #  COMMON MEMBERS
@@ -410,52 +412,51 @@ def ReadMng ( ) :
                     new_cwd = readEqStr()  #; print ('AAA', new_cwd)
                     os.chdir(new_cwd);   sys.path.append(os.getcwd())
 #                    printS ( '*******************  change CWD:', getcwd() )
-    elif Is(Q, "SetStartDir") :
-                    os.chdir(SvF.startDir);
+    # elif Is(Q, "SetStartDir") :  os.chdir(SvF.startDir);                      # 2026.07 ???
     elif Is(Q, "COMPILE:"):     COMPILE_RUN_option (buf)
     elif Is(Q, 'RUN:'):         COMPILE_RUN_option (buf)  #WriteRUNoption (buf)
-
     elif Is(Q, "SELECT:") :    WriteSelect30(Treat_FieldNames('Select '+buf))
-
     elif(Is(Q, "GRID:") or
          Is(Q, "SET:")  ) :
- #                   buf = Treat_FieldNames(buf)
-#                    WriteGrid27 ( buf )
                     WriteSet_24_12(Treat_FieldNames(buf))
-
     elif Is(Q, "DOMAIN:"): WriteDomain_24_12(Treat_FieldNames(buf))
 
-    elif Is(Q, "VAR:"   ) :  WriteVarParam26 ( buf, False )
-    elif Is(Q, "PARAM:" ) :  WriteVarParam26 ( buf, True )
+    elif Is(Q, "VAR:"   ) :     WriteVarParam26 ( buf, False )
+    elif Is(Q, "PARAM:" ) :     WriteVarParam26 ( buf, True )
     elif (Is(Q, "POLYLINE:" )
-       or Is(Q, "POLY:" ) ) :  WritePolyline ( buf )
-    elif Is(Q, "EQ:")     :  WriteModelEQ31 ( buf )
-
+       or Is(Q, "POLY:" ) ) :   WritePolyline ( buf )
+    elif Is(Q, "EQ:")     :     WriteModelEQ31 ( buf )
     elif (Is(Q, "PENALTY:")
-       or Is(Q, "OPTPAR:") ):
-                                  WritePenalty ( buf )
-
-    elif Is(Q, "OBJL:" )  :  WriteModelOBJ19 ( Q,buf )
-    elif Is(Q, "OBJU:" )  :
-                            WriteModelOBJ_U (buf)
- ##                           if not SvF.Preproc :  SvFstart19p(Task)
-    elif Is(Q, "OBJ:" ):
-                            WriteModelOBJ19 ( Q,buf )
-##                            if not SvF.Preproc : SvFstart19p ( Task )
+       or Is(Q, "OPTPAR:") ):   WritePenalty ( buf )
+    elif Is(Q, "OBJL:" )  :     WriteModelOBJ19 ( Q,buf )
+    elif Is(Q, "OBJU:" )  :     WriteModelOBJ_U (buf)
+    elif Is(Q, "OBJ:" ):        WriteModelOBJ19 ( Q,buf )
+    elif Is(Q, "RESIDUAL:"):    WriteRESIDUAL(buf)  #  26.07    RESIDUAL: DB, E, E(ROWNUM), hours  # -> RESID_E_hours.mng + .dat
     elif(Is(Q, "EoF") or
          Is(Q, "EoTask") ):
 #                        if objective == 'N':  buf = 'OBJ: N';
                         print ('OptMode', SvF.OptMode)
-                        print ('EoF ************', Q, ' in READ MNG ********************* EoF or EoTask')
-                        if  Is(Q, "EoF"):
-                            if SvF.ShowAll:
+                        print('\n############################ End Of Compilation ############################### ', Q)
+                        if 1:        #Is(Q, "EoF"):
+                            if SvF.ShowAll and DrawMode.find('Screen') >= 0 :
                                 Swr('\nif SvF.ShowAll:  input("         Нажмите ENTER, чтобы продолжить (закрыть все графики) ")')
+                            Swr("if SvF.addStrToRes != '':")
+                            Swr("    with open(SvF.resF, 'a') as f:  # RES filewrite")
+                            Swr("        f.write('addStrToRes: ' + SvF.addStrToRes)")
+
+                            # If COMPARE: section was used in .mng start launch results comparison of calculated tasks
+                            from Compare import compare_results
+                            print(f"SvF.ResFilesToCompare={SvF.ResFilesToCompare}")
+                            if SvF.ResFilesToCompare != []:
+                                compare_results()
 
                         debug_write_end() # kfe_added for testing MixedFunc addition
-                        if not SvF.SModelFile is None:  SvF.SModelFile.close()
-                        if Q == 'EOTASK' :  SvF.EofTask = True
-                        else:               SvF.EofTask = False
-                        return Task
+                        if not SvF.SModelFile is None:
+                                SvF.SModelFile.close()
+                                SvF.SModelFile = None
+               #         if Q == 'EOTASK' :  SvF.EofTask = True
+                #        else:               SvF.EofTask = False
+                        return Q
 
     elif Is(Q, 'CV:'):    WriteCV (Treat_FieldNames(buf))
     elif Is(Q, 'DRAW:'):  Swr('Task.Draw ( \'' + buf + '\' )')
@@ -520,8 +521,8 @@ def ReadMng ( ) :
 
 
 
-
- while 0 :  ######################################################################################
+"""
+  ######################################################################################
 
     if Is(Q,"Polygon") :
                             defName = readStr()
@@ -645,4 +646,4 @@ def ReadMng ( ) :
 ##def  SvFstart19p ( Task ):
 ## 30        from SvFstart62 import SvFstart19  #*
   ##      SvFstart19 ( Task )
-
+"""

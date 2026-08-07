@@ -13,9 +13,12 @@ from   Object import *
 from Table   import *
 from GIS     import *
 
+
 import matplotlib.ticker
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import ScalarFormatter
+
+from SvFconf import DrawMode
 
 # Функция форматирования для замены точки на запятую
 def comma_formatter_pos(x, pos):
@@ -38,6 +41,7 @@ def Plot (plots) :
     if SvF.yaxis_step != 0:     ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=SvF.yaxis_step))
     if len(SvF.X_lim) != 0: plt.xlim(SvF.X_lim )
     if len(SvF.Y_lim) != 0: plt.ylim(SvF.Y_lim )
+
     TRANSPOSE = False
 
     def swapTRANS(x, y) :
@@ -114,12 +118,12 @@ def Plot (plots) :
           #      if len ( part_plot.split('=') ) == 2:  VAL = part_plot.split('=')[1].strip('"').strip("'")
                 print (PAR,VAL)
                 if   PAR in ['color', 'c' ] :                   C  = VAL                	# Цвет линии или маркера (например, 'red', '#FF0000')
-                elif PAR in ['color', 'lc' ] :                  C  = VAL 
+                elif PAR in ['color', 'lc' ] :                  C  = VAL                	# Цвет линии или маркера (например, 'red', '#FF0000')
                 elif PAR in ['linewidth', 'lw']:                LW = float(VAL)	            # Толщина линии (в пунктах, float)
                 elif PAR in ['linestyle', 'ls'] :               LS = VAL                    # Стиль линии (например, '-', '--', '-.', ':')
                 elif PAR in ['marker', 'mark' ] :               MARK = VAL                  # Тип маркера точек (например, 'o', 's', '^', '*')
                 elif PAR in ['markersize','ms'] :               MS = float(VAL)             # Размер маркера (в пунктах)
-                elif PAR in ['markerfacecolor',	'mc'] :      MFC = VAL; MEC = VAL    
+                elif PAR in ['markerfacecolor',	'mc'] :      MFC = VAL; MEC = VAL           # Цвет заливки (внутренней +граница)
                 elif PAR in ['markerfacecolor',	'mfc'] :        MFC = VAL                   # Цвет заливки (внутренней части) маркера mfc=none-не заливать
                 elif PAR in ['markeredgecolor', 'mec'] :        MEC = VAL                   # Цвет границы маркера
                 elif PAR in ['markeredgewidth', 'mew'] :        MEW = float(VAL)            # Толщина границы маркера
@@ -170,10 +174,19 @@ def Plot (plots) :
                     label=dLAB )
         if D == '2Dfun1' or D == '2Dxy' or D == '2Dpoly' :
             xx, yy = swapTRANS(xx, yy)
-            #print (LAB,LW)
+
+
+       #     ax.loglog(xx, yy, color=C, lw=LW, linestyle=LS,    # 26.04  Арктика
             ax.plot(xx, yy, color=C, lw=LW, linestyle=LS,
                 marker=MARK, markersize=MS, markerfacecolor=MFC, markeredgecolor=MEC, markeredgewidth=MEW,
                 label=LAB )
+
+        #    formatter = ScalarFormatter()      # 26.04  Арктика
+         #   formatter.set_scientific(False)    # 26.04  Арктика
+          #  formatter.set_useOffset(False)     # 26.04  Арктика
+
+           # ax.xaxis.set_major_formatter(formatter)    # 26.04  Арктика
+            #ax.yaxis.set_major_formatter(formatter)    # 26.04  Арктика
 
         elif D == '2Dfun2' :
             xx, yy = swapTRANS(xx, yy)
@@ -190,7 +203,8 @@ def Plot (plots) :
          #           ax.clabel(cs1, inline=1, fontsize=NUM_FONT_SIZE, fmt=comma_formatter)
           #      else:
            #         ax.clabel(cs1, inline=1, fontsize=NUM_FONT_SIZE, fmt=levelFmt)  # сторо !
-            ax.clabel(cs1, inline=1, fontsize=NUM_FONT_SIZE)   #, fmt=levelFmt)  # сторо !
+            if SvF.LEVEL_FONT_SIZE>0 :                                                                  # 26.07.18
+                ax.clabel(cs1, inline=1, fontsize=SvF.LEVEL_FONT_SIZE)   #, fmt=levelFmt)  # сторо !
 
         file_name += LAB
 # ОСИ
@@ -202,10 +216,10 @@ def Plot (plots) :
     plt.title(tLAB, fontsize=FONT_SIZE + 1, style=FONTstyle, y=tLAB_y, x=tLAB_x)  # , pad = 3)
     ax.legend(fancybox=True, prop={'size': FONT_SIZE}, framealpha=0)  # framealpha -
     plt.tight_layout()
-    if SvF.DrawMode.find('File') >= 0 :
+    if DrawMode.find('File') >= 0 :
         if FileName is None:  FileName = file_name
         plt.savefig(FileName + '.' + SvF.graphic_file_type, dpi=SvF.DPI)
-    if SvF.DrawMode.find('Screen') >= 0 :
+    if DrawMode.find('Screen') >= 0 :
             if SvF.ShowAll :  plt.show(block=False)
             else           :  plt.show()
             """""
@@ -243,7 +257,7 @@ def Plot (plots) :
 
 
 def DrawComb( param ):
-    if SvF.DrawMode == '' :  return
+    if DrawMode == '' :  return
     print ('           Draw', param)
     Transp = SvF.DrawTransp
     FONT_SIZE = SvF.FONT_SIZE  #16 #24  # 16 # 7
@@ -593,10 +607,10 @@ def DrawComb( param ):
     ax.yaxis.set_label_coords( SvF.Ylabel_x, SvF.Ylabel_y ) #1.02)  # в длиннах оси
 
     plt.tight_layout()
-    if SvF.DrawMode.find('File') >= 0 :
+    if DrawMode.find('File') >= 0 :
         if SvF.DrawFileName != '':  file_name = SvF.DrawFileName
         if DrawErr:  plt.savefig(file_name+'Err.' + SvF.graphic_file_type, dpi=SvF.DPI)  # (os.path.join('%s'%dir,'inner_int_gamma_%g%s.%s'%(fun.gamma, suffix, fmt)), dpi = dpi)
         else:        plt.savefig(file_name + '.'+ SvF.graphic_file_type, dpi=SvF.DPI)
-    if SvF.DrawMode.find('Screen') >= 0 :
+    if DrawMode.find('Screen') >= 0 :
             if SvF.ShowAll :  plt.show(block=False)
             else           :  plt.show()

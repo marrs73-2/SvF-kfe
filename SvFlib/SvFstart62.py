@@ -552,7 +552,6 @@ def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
 #                print >> f, [p for  p in Penal]
                 f.write (str(Penal))
                 for fu in Task.Funs :           # v21
-#                      if fu.mu is None: continue                     #  2023.11
                       if fu.type == 'tensor': continue
                       if fu.V.dat is None or fu.param: continue  # 23.11
 #                      str_wr = '\n'+fu.nameFun()+' '
@@ -564,9 +563,13 @@ def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
                                 +' SD ' + str(np.sqrt(fu.MSDv)*fu.V.sigma) + ' sig '+str(fu.V.sigma)
 
                       f.write ( '\n' + str_wr )
+                      f.write ( '\n' + str_wr )
                       print (str_wr)
                       to_logOut ( str_wr )
                 f.write( '\n'+'Estim ' + str(Estim))
+                to_logOut ( 'Estim ' + str(Estim) )
+                to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
+
                 to_logOut ( 'Estim ' + str(Estim) )
                 to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
 

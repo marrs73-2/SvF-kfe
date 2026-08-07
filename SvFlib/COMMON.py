@@ -50,9 +50,8 @@ DeleteServerJobs = True
 
 ShowAll = True
 DrawFileName = ''
-#Resources = ["kulikovfe"]
-Resources = ["shark1vvv"]
-#Resources = [ "vvvolDellDocker" ]
+#Resources = [ "pool-scip-ipopt" ]
+Resources = [ "pool-scip-ipopt", "shark1vvv" ]
 
 Substitude = True
 Default_step = -50
@@ -78,7 +77,7 @@ Compile = True      # 30 при подготовке модели включен
 
 addStrToRes = ''
 
-EofTask         = False
+# EofTask         = False
 
 SvFprefix       = ''    # 29
 TabString       = '    '
@@ -113,6 +112,7 @@ X_lim           = []
 Y_lim           = []
 locator         = None
 FONT_SIZE       = 16
+LEVEL_FONT_SIZE       = 16
 axisNUM_FONT_SIZE = 12
 title_x        = 0.7
 Ylabel_x       = 0.03
@@ -198,7 +198,7 @@ TaskName    = 'NoName'
 useNaN      = True   #False
 VarNormalization = False
 
-token      =  '/home/kulikovfe/git_work/pyomo-everest/.token'
+#token      =  '/home/kulikovfe/git_work/pyomo-everest/.token'
 
 #    opt.options['acceptable_tol']       = 1e-10
 
@@ -217,10 +217,10 @@ stab_val_by_cv   = []
 #py_warm_start_mult_bound_push = 1e-6
 #py_constr_viol_tol = 1e-4  ##1e-11
 
-path_SvF   = ''     #   "/home/sokol/C/_SvF/"
-path_SvF_Lib = ''   #   /home/sokol/D/SvF/SvFlib/
+#path_SvF   = ''     #   "/home/sokol/C/_SvF/"
+#path_SvF_Lib = ''   #   /home/sokol/D/SvF/SvFlib/
 tmpFileDir = ''     #   'C:\\C\\_SvF\\TMP\\'
-startDir   = ''
+#startDir   = ''
 
 ###########################  AZIMUT  #########################
 lon_center_rad = None
