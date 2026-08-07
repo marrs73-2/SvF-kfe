@@ -13,16 +13,16 @@ SolverScripts = {'ipopt':'docker-ipopt.sh', 'scip':'docker-scip.sh'}
 optFact = None # созданный солвер для решения задач низкого уровня
 
 # Словари для связки конфигураций солверов с их названиями
-ipopt_config = {  "linear_solver"              : 'ma57'\
+ipopt_config = {  "linear_solver"              : 'ma97'\
                  , 'max_iter'                   : 50000 \
-                 , "print_level"                : 0     \
+                 , "print_level"                : 4     \
                  , 'warm_start_init_point'      : 'yes' \
                  , 'warm_start_bound_push'      : 1e-6 \
                  , 'warm_start_mult_bound_push' : 1e-6 \
                  , 'constr_viol_tol'            : 1e-4 \
                  , 'mu_init'                    : 1e-6 \
-                 , "tol"                        : 1e-9 \
-                 , 'print_user_options'         : 'yes'
+                ,  "tol"                        : 1e-6 \
+                 , 'print_user_options'         : 'yes' #, 'halt_on_ampl_error': 'yes'
                 }
 
 scip_config = {  "display/verblevel" : 5 \
@@ -46,6 +46,7 @@ max_workers = 6
 
 jobId_s = []
 maxJobs = 0
+DeleteServerJobs = True
 
 ShowAll = True
 DrawFileName = ''
@@ -63,7 +64,6 @@ funPrefix = 'f'             #  в ReadMng добавить обработку
 #funPrefix = 'f_'
 Prefix   = ''
 Comment = False              #  в ReadMng
-
 UseGreek = False
 
 comment_buf = ''
@@ -86,8 +86,8 @@ TabString       = '    '
 Use_var = False         # 29
 
 #   Drow  #############################
-DrawOpt = True     # kfe_added
-DrawOptPoints = 10  # kfe_added
+DrawOpt = False     # kfe_added
+DrawOptPoints = 5  # kfe_added
 DrawOptMode = "Absolute" # Absolute / Relative
 DrawOptWidthCoef = 3     #kfe_added
 DrawOptSegment = [0.09, 0.14]
@@ -150,17 +150,26 @@ DataPath = ''
 
 ExitStep     =   1e-7
 OptStep      = '0.01'
+CoeffPower = 4
+
+# spotoptim optimization parameters
+Use_spotoptim = True
+Acquisition_mode = "y"
+Low_bound = 1.e-4
+High_bound = 10
+Show_spotoptim_graphs=False
+Initial_points = "Old"
 
 mngF = ''
 
-resF = ''    #      #resF = None - not read Penalty
-
-#lenPenalty   = 0   25 02 10
-Penalty      = []
+resF = ''    #      #resF = None - not read Penalty; resF = '' - make resF copy from .mng  file name
+ResAux = ''
+ResFilesToCompare = []
+ResGraphColors = []
+Tail_start = []
+Penalty      =  []
 OptNames = []
-#fromPenalty = None
 
-#  mngPenalty   = []        ???
 
 #CVproc       = ''
 CVNumOfIter  =   20

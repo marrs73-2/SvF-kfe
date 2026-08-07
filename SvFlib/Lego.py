@@ -7,6 +7,7 @@ import pyomo.environ as py
 #import matplotlib.pyplot as plt
 from   os.path  import *
 import functools
+import COMMON as co
 
 from sympy import false
 
@@ -959,20 +960,38 @@ class BaseFun (Tensor) :
     def ComplDer2 ( self, bets ) :
 #            print ('ComplDer2', self.type)
             if self.dim == 1 :
-              return    bets[0]**4 * self.INTxx ( )
+                if co.CoeffPower == 4:
+                    return    bets[0]**4 * self.INTxx ( )
+                elif co.CoeffPower == 2:
+                    return    bets[0]**2 * self.INTxx ( )
             elif self.dim == 3:
-                return (  bets[0] ** 4 * self.INTxx()
-                        + bets[1] ** 4 * self.INTyy()
-                        + bets[2] ** 4 * self.INTzz()
-                        + bets[0] ** 2 * bets[1] ** 2 * self.INTxy()
-                        + bets[0] ** 2 * bets[2] ** 2 * self.INTxz()
-                        + bets[1] ** 2 * bets[2] ** 2 * self.INTyz()
-                       )
+                if co.CoeffPower == 4:
+                    return (  bets[0] ** 4 * self.INTxx()
+                            + bets[1] ** 4 * self.INTyy()
+                            + bets[2] ** 4 * self.INTzz()
+                            + bets[0] ** 2 * bets[1] ** 2 * self.INTxy()
+                            + bets[0] ** 2 * bets[2] ** 2 * self.INTxz()
+                            + bets[1] ** 2 * bets[2] ** 2 * self.INTyz()
+                        )
+                elif co.CoeffPower == 2:
+                    return (  bets[0] ** 2 * self.INTxx()
+                            + bets[1] ** 2 * self.INTyy()
+                            + bets[2] ** 2 * self.INTzz()
+                            + bets[0]  * bets[1] * self.INTxy()
+                            + bets[0]  * bets[2] * self.INTxz()
+                            + bets[1]  * bets[2] * self.INTyz()
+                        )
             else:
-              return (  bets[0]**4 * self.INTxx ( )
-                      + bets[1]**4 * self.INTyy ( )
-                      + bets[0]**2 * bets[1]**2 * self.INTxy ( )                     #      * 2  ????
-                     )   
+                if co.CoeffPower == 4:
+                    return (  bets[0]**4 * self.INTxx ( )
+                            + bets[1]**4 * self.INTyy ( )
+                            + bets[0]**2 * bets[1]**2 * self.INTxy ( )                     #      * 2  ????
+                            )   
+                elif co.CoeffPower == 2:
+                    return (  bets[0]**2 * self.INTxx ( )
+                            + bets[1]**2 * self.INTyy ( )
+                            + bets[0] * bets[1] * self.INTxy ( )                     #      * 2  ????
+                            )   
 
     def ComplDer1 ( self, bets ) :
             if self.dim == 1 :

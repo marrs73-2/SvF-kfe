@@ -17,15 +17,12 @@ import ssop_config
 #from Lego    import *
 from CVSets  import *
 from GaKru   import *
-from SurMin  import SurMin
+import SurMin
+from SurMin  import SurMinMethod, SurMinOld, SetAllArgs
 from Pars    import *
 from Tools   import *
-#from Task    import Grd_to_Var
 from Task    import Var_to_Grd, FillNaNAll, setUse_var
 from ModelFiles import to_logOut
-
-#from StartModel import Model
-#import Model as Model
 
 
 from SolverTools import *
@@ -43,63 +40,92 @@ from pyomo.opt import SolverFactory
 buf = ""
 
 #Mng = ''
+# import sys
+# import io
+# sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace') #kfe_added
 
 def SvFstart19 ( Task ) :
+    """
+    Main method for SvF, envokes optimization.
+    It's only called from the end of written StartModel.py file for a specific Task.
+    """
+
     full_start = time.time()
     print ('\n\n\nStart SvFstart')
+
+    # Switch gr to grd bacause numerical optimization is about to start
     setUse_var(False)  # 25.10
 
-    if co.resF is None :   #  не считываем, но сохраняем
-        co.resF = co.mngF[:co.mngF.rfind('.')] + '.res'  # RES file read
-##        co.lenPenalty = len (co.OptNames)
+    print(f"co.resF = {co.resF}, co.Penalty = {co.Penalty}")
+    # If co.resF is None, Penalty is not read from the .res file. Otherwise, it is.
+    if co.resF is None: 
+        if co.ResAux != '':
+            # Set custom name of .res file for writing in later
+            co.resF = co.ResAux + '.res'
+        else:
+            # If co.resF isn't custom set name of .res file based on .mng file name for writing in later. 
+            co.resF = co.mngF[:co.mngF.rfind('.')] + '.res'
     else :
-        if co.resF == '' :  co.resF = co.mngF[:co.mngF.rfind('.')]+'.res'   #  RES file read
+        # Set name of .res file based on .mng file name if co.resF isn't custom. 
+        if co.resF == '' :  co.resF = co.mngF[:co.mngF.rfind('.')]+'.res'
 
-        Penal = co.Penalty
-##        if co.printL : print ('co.lenPenalty', co.lenPenalty)
-        print(Penal, co.Penalty)
-
-      #  print('From File: ', co.resF) #, len (co.Penalty), co.Penalty)
-
+        # Try getting Penalty from .res file
         try:
                 with (open(co.resF,'r') as f):
-                    s = f.readline().strip().replace(',', ' ').replace('   ', ' ').replace('  ', ' ').replace(' ', ',')  #.split(', ')
+                    s = f.readline().strip().replace(',', ' ').replace('   ', ' ').replace('  ', ' ').replace(' ', ',')  
                     Penal = readListFloat19 (s)
-                    print ('read PENALTY:', Penal)
+                    print ('read PENALTY:', Penal)\
+                    
+                    # save read initinal regularization coefficients back to configuration file
+                    co.Penalty = Penal
         except IOError as e:
                 print ("******* Can''t open RES file: ", co.resF)
-        #        if len (Penal) == 0 :  exit(-1)
-        co.Penalty = Penal
-    # print (co.Penalty); exit(22)
- #   co.Penalty = [0.1 if x is None else x for x in co.Penalty]    26.04
+
+
+    # Idk what's that for
     co.Penalty = [0.03 if x is None else x for x in co.Penalty]
- #   print (Penal, co.Penalty)
-  #  1/0
 
-#    maxSigEst = 0           # оценка сигмы скольз. среднем
-
+    # Make solver for low-level of surrogate optimization
     co.optFact = Factory(SvF.SolverConfigFileNames[SvF.SolverNameLow], co.SolverNameLow)
-#    print('co.optFactST', co.optFact)
 
-#    print ('')
- #   for f in Task.Funs :  f.Oprint()
-  #  print ('')
-
+    # Set initial optimization steps for each dimension based on value of initial points 
+    # If it's set a string like "0.01". Only used in old optimization algorithm as a step array.
+    # If it's set manualy and step is 0 for some dimension, then the according variable's initial value isn't
+    # optimized at all.
     if type(co.OptStep) is str :
         co.OptStep = [float(co.OptStep) * p for p in co.Penalty[:]]
 
+    # Distinguish variables being optimized from the ones which are strictly set.
+    # Arg and steps arrays are copies from co.Penalty and co.OptStep without strictly set variables.
+    arg = []
+    steps = []
+    for ia, a in enumerate(co.Penalty) :
+        if co.OptStep[ia] != 0 :
+            arg.append(a)
+            steps.append(co.OptStep[ia])
+    arg = np.array (arg)
+
     if co.CVNumOfIter < 0: pass
+    # If iterations number is set to zero then just calculate CVError of initial Penalty without optimization
     elif co.CVNumOfIter == 0:
             get_sigCV(co.Penalty, -1)
     else :
-      #  print ('co.OptStep',co.OptStep, 'co.Penalty', co.Penalty)
-        points, step = SurMin ( co.CVNumOfIter, co.OptStep, co.ExitStep, co.Penalty, get_sigCV, Task )   ######## START ###########
-        with open(co.resF,'a') as f:      #  RES filewrite
-            f.write( 'Step: '+ str(step) + '\nPoints:' )
-            for p in points :  f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg) + '\n')
-#            print >> f, 'Step:', step, '\nPoints:'
- #           for p in points :  print >> f, 'Num', p.Num, 'Val', p.Val, 'Arg', p.Arg
+        # Start surrogate optimization to find better regularization parameters if iterations are > 0.
+        # Two ways of optimization are available: 1) new based on spotoptim module 2) old self-written
+        if co.Use_spotoptim == True:
+            points = SurMinMethod ( co.CVNumOfIter, arg, steps, get_sigCV_for_spotoptim, Task )
+        else:
+            points, step = SurMinOld ( co.CVNumOfIter, arg, steps, co.ExitStep, get_sigCV, Task )
 
+        # Write all points to a .res file
+        with open(co.resF,'a') as f:     
+            f.write( 'Points:\n' )
+            for p in points :  
+                f.write( 'Num '+str(p.Num) + ' Val ' + str(p.Val) + ' Arg ' + str(p.Arg))
+                if p.initial == True: f.write(" INITIAL")
+                f.write("\n")
+
+    #
     Task.ReadSols('')
     Gr = Task.Gr
 
@@ -109,19 +135,19 @@ def SvFstart19 ( Task ) :
         for s in co.notTrainingSets[-1] : Gr.mu0[s]=0
         NoRnoB = sum ( Gr.mu0[s]() for s in Gr.F[0].sR )
         print ('***** MSD_NoBorder', np.sqrt(Gr.F[0].NoR* Task.defMSDVal ( Gr, 0 ) /NoRnoB)*Gr.F[0].V.sigma)
-#        print '***** MSD_NoBorder', np.sqrt(Gr.F[0].NoR*Gr.F[0].MSD()()/NoRnoB)*Gr.F[0].V.sigma
         for s in Gr.F[0].sR : Gr.mu0[s]=1
 
     for f in Task.Funs :
       if not f.param :
-#        f.SaveTbl('')
         if co.SavePoints : f.SavePoints()
-#        if co.SaveDeriv and f.type != 'p' :  f.SaveDeriv ( "" )
-#        if co.SaveGrid=='Y' and f.dim == 2 and f.type != 'p':     f.SaveGrid ( co.TranspGrid, '' )
 
+
+    # Draw optimization graph (currently only for 1D) with all points evaluated in optimization
+    # and other evenly spaced additionaly evalueted points 
     if co.DrawOpt == True:
-        #print("Task.OptPoints = ", Task.OptPoints)
-        if Task.OptPoints == []: Task.OptPoints = [Penal]
+        # If optimization didn't happen fill the OptPoints array with initial value
+        if Task.OptPoints == []: Task.OptPoints = [co.Penalty]
+
         plotOptim (Task)
 
     print ("EofCulc")
@@ -133,6 +159,21 @@ def SvFstart19 ( Task ) :
 
 
 #optEstim = sys.float_info.max
+
+def printMSD () :
+    printS ("sol SD%: |")
+    for ifu, fu in enumerate(co.Task.Funs) :
+            if  fu.type == 'tensor' : continue
+            if fu.V.dat is None or fu.param: continue       #  23.11
+#            if fu.mu is None:  continue                    #  23.11
+            if not co.Task.DeltaVal is None: fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
+            else:
+                if fu.MSDmode == 'MSDrel':  fu.MSDv = fu.MSDrel(fu.measurement_accur)          # 21.02.2023
+                else :                      fu.MSDv = fu.MSDnan()
+#            if co.Task.defMSDVal is None : fu.MSDv = fu.MSDnan()  ### ()
+ #           else                         : fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
+            printS (fu.V.name, np.sqrt(fu.MSDv)*100.,' |')
+    print ('')
 
 
 def testEstim (Gr, k) :  # k - ValidationSets
@@ -205,43 +246,42 @@ def getEstimCV(Gr) :
         return Estim
 
 
-def printMSD () :
-    printS ("sol SD%: |")
-    for ifu, fu in enumerate(co.Task.Funs) :
-            if  fu.type == 'tensor' : continue
-            if fu.V.dat is None or fu.param: continue       #  23.11
-#            if fu.mu is None:  continue                    #  23.11
-            if not co.Task.DeltaVal is None: fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
-            else:
-                if fu.MSDmode == 'MSDrel':  fu.MSDv = fu.MSDrel(fu.measurement_accur)          # 21.02.2023
-                else :                      fu.MSDv = fu.MSDnan()
-#            if co.Task.defMSDVal is None : fu.MSDv = fu.MSDnan()  ### ()
- #           else                         : fu.MSDv = co.Task.defMSDVal ( Gr, ifu )
-            printS (fu.V.name, np.sqrt(fu.MSDv)*100.,' |')
-    print ('')
+def get_sigCV(Penal_incomplete, itera):
+    """
+    Calculates cross-validation error.
 
+    Args:
+        Penal_incomplete (float) - regularization coefficient for the current task, yet to be 
+            completed by static coefficients.
+        itera (int) - iteration number
 
+    Returns:
+        float: cross-validation error
+    """
+    print(f"Penal = {Penal_incomplete}",
+          f"co.Penalty = {co.Penalty}", 
+          f"co.OptStep = {co.OptStep}")
+    
+    # Get complete set of regularization coefficients, including unoptimized.
+    Penal = SetAllArgs(Penal_incomplete, co.Penalty, co.OptStep)
 
-def get_sigCV( Penal, itera):
     co.CV_Iter = itera
     Task = co.Task
-#    reload (Model)
+
+    # Load data from .sol files to .grd if they're present. This optimizes solving of following tasks.
     Task.ReadSols('')
-#    SvF.Penalty = Penal
+
     if not (SvF.feasibleSol is None) : SvF.feasibleSol(Penal)
 
-    print ('for Penal: ', Penal ) #, end=' ')
 
+    # Что за режим?
     if SvF.OptMode == 'SurMinOpt' :
-  #      co.Use_var = True       # 29
-        setUse_var(True)       # 25.10
-
+        setUse_var(True)  
         Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
         Grd_to_Var()
-        #co.Use_var = False       # 29
-        setUse_var(False)  # 25.10
+        setUse_var(False)  
 
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])      
         Gr.solutions.load_from(resultss[0])
         Var_to_Grd()
         Task.SaveSols('.tmp')
@@ -249,27 +289,35 @@ def get_sigCV( Penal, itera):
         print ('OBJ',Gr.OBJ())
         Estim = Gr.OBJ()
 
+    # Main mode of this program
     elif SvF.OptMode == 'SvF':
-        
+        # For every variable in Task fill missing values with ones
         FillNaNAll ()
-     #   co.Use_var = True       # 29
-        setUse_var(True)  # 25.10
 
-        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
+        # Create the Model described in StartModel.py file with current Penalty
+        setUse_var(True)  
+        Gr = Task.createGr(Task, Penal)
+        
         Grd_to_Var()
-        #        co.Use_var = False       # 29
-        setUse_var(False)  # 25.10
+        setUse_var(False) 
 
         for fu in Task.Funs :  fu.CVresult = []
 
         if itera <= 0 : printS (' Load on Start ');   printMSD()
 
-        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        # Solve problem on set of all points. Used for obtaining good initial solution for subsequent problems.
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])      
+
+        # Load solutions into model
         Gr.solutions.load_from(resultss[0])
+
+        # 
         Var_to_Grd()
 
+        # Save solutions into temporary file
         Task.SaveSols('.tmp')
 
+        # Print results for initial problem
         print ('OBJ',Gr.OBJ())
         printMSD()
 
@@ -305,6 +353,7 @@ def get_sigCV( Penal, itera):
 
         else : Estim = -1
 
+    # Что за режим?
     elif SvF.OptMode == 'SurMin':
        Estim = SvF.ObjectiveFun (Penal)
 
@@ -342,7 +391,9 @@ def get_sigCV( Penal, itera):
                     Task.print_res(Task, Penal, f)
     return Estim
 
-def get_sigCV_kfe( Penal):
+def get_sigCV_kfe(Penal_only_optimized):
+    Penal = SetAllArgs(Penal_only_optimized, co.Penalty, co.OptStep)
+
     Task = co.Task
     Task.ReadSols('')
 
@@ -394,6 +445,136 @@ def get_sigCV_kfe( Penal):
 
     else : Estim = -1
     return Estim
+import sys
+from io import StringIO
+
+def suppress_print(func):
+    """Декоратор для подавления print внутри функции"""
+    def wrapper(*args, **kwargs):
+        original_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            result = func(*args, **kwargs)
+        finally:
+            sys.stdout = original_stdout
+        return result
+    return wrapper
+
+#@suppress_print
+def get_sigCV_for_spotoptim(Penal_only_optimized, iter=None):
+    Penal_only_optimized = np.atleast_2d(np.array(Penal_only_optimized))
+    print(f"Penal_only_optimized = {Penal_only_optimized}",
+          f"co.Penalty = {co.Penalty}", 
+          f"co.OptStep = {co.OptStep}")
+    print(f"PRINTING init_x_to_y_dict: on {co.CV_Iter} = {SurMin.init_x_to_y_dict}")
+    if iter: co.CV_Iter = iter
+    else: co.CV_Iter += 1
+    if Penal_only_optimized.shape[0] == 1:
+        if Penal_only_optimized.ndim == 2:
+            Penal_only_optimized = Penal_only_optimized[0]
+        Penal = SetAllArgs(Penal_only_optimized, co.Penalty, co.OptStep)
+        Penal = np.atleast_2d(np.array(Penal))
+    else:
+        print("В get_sigCV передано несколько точек - возвращаю значения для точек инициализации")
+        print(f"Массив возвращаемых значений: {np.array(list(SurMin.init_x_to_y_dict.values()))}")
+        return np.array(list(SurMin.init_x_to_y_dict.values()))
+    
+    if Penal.ndim == 2 and Penal.shape[0] == 1:
+        Penal = Penal[0]
+    
+    print(f"Penal after 'squeeze': {Penal}")
+
+    Task = co.Task
+#    reload (Model)
+    Task.ReadSols('')
+#    SvF.Penalty = Penal
+    if not (co.feasibleSol is None) : co.feasibleSol(Penal)
+
+    if co.OptMode == 'SvF':
+        FillNaNAll ()
+        setUse_var(True)  # 25.10
+
+        Gr = Task.createGr(Task, Penal)   # обновлем на каждой итерации
+        Grd_to_Var()
+        setUse_var(False)  # 25.10
+
+        for fu in Task.Funs :  fu.CVresult = []
+
+        if co.CV_Iter <= 0 : printS (' Load on Start ');   printMSD()
+
+        resultss = solveProblemsNl(Gr, '', co.RunMode[0])               #  tmp
+        Gr.solutions.load_from(resultss[0])
+        Var_to_Grd()
+
+        Task.SaveSols('.tmp')
+        print ('OBJ',Gr.OBJ())
+        printMSD()
+
+        if not Task.OBJ_U is None :
+            Estim = Task.OBJ_U(Task)()
+            print ('**************KK=', Estim)
+        
+        if co.CVNumOfIter != 0 :
+            star = time.time()
+
+            if co.RunMode[2] != 'L':
+    #            resultss = solveProblemsNl ( Gr, co.notTrainingSets, co.RunMode[2] )
+                resultss = solveProblemsNl ( Gr, '*', co.RunMode[2] )              # All tests
+                for nres, res in enumerate (resultss) :
+                    Gr.solutions.load_from(res)
+                    testEstim(Gr, nres)
+            else:       ## co.RunMode[2] == 'L' :
+                res_num = 0
+ #               print(co.CV_NoSets, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                for k in range(co.CV_NoSets):                                  # LOAD RES,  culculation
+                    #               if co.NotCulcBorder :  #  границ не считаем
+                    #                  if k == 0 or k == len(ValidationSets) - 1:   1/0;  continue  #########  ???????????????????
+                    #             printS (str(k)+' |')
+                    #                results = solveProblemsNl(Gr, [co.notTrainingSets[k]], co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                    results = solveProblemsNl(Gr, k, co.RunMode[2])[0]  #!! РАБОТАЕТ ТОЛЬКО ДЛЯ ОДНОГО resultss
+                    res_num += 1
+                    Gr.solutions.load_from(results)
+                    testEstim(Gr, k)
+
+            Estim = getEstimCV(Gr)
+            print ('\tEstim% '+str(Estim)+"\tTime  "+ str(time.time() - star))
+
+        else : Estim = -1
+
+    if Estim < co.optEstim :
+            co.optEstim = Estim
+            Task.RenameSols( '.tmp', '.sol' )
+
+            setMuToTeach_k('')     #  mu = 1   ##############  26/04/24
+            Task.ReadSols()                    ##############  26/04/24
+            Grd_to_Var()
+            with open(co.resF,'w') as f:      #  RES filewrite
+#                print >> f, [p for  p in Penal]
+                f.write (str(Penal))
+                for fu in Task.Funs :           # v21
+#                      if fu.mu is None: continue                     #  2023.11
+                      if fu.type == 'tensor': continue
+                      if fu.V.dat is None or fu.param: continue  # 23.11
+#                      str_wr = '\n'+fu.nameFun()+' '
+                      str_wr = fu.nameFun()+' '
+                      if co.CVNumOfIter > 0:
+                          if fu.MSDmode == 'MSDrel':   str_wr += " CV% " + str(fu.sCrVa*100)
+                          else:                     str_wr += " CV% " + str(fu.sCrVa/fu.V.sigma*100)
+                      str_wr += ' SD% ' + str(np.sqrt(fu.MSDv)*100) + " CV " + str(fu.sCrVa) \
+                                +' SD ' + str(np.sqrt(fu.MSDv)*fu.V.sigma) + ' sig '+str(fu.V.sigma)
+
+                      f.write ( '\n' + str_wr )
+                      print (str_wr)
+                      to_logOut ( str_wr )
+                f.write( '\n'+'Estim ' + str(Estim))
+                to_logOut ( 'Estim ' + str(Estim) )
+                to_logOut ( 'OBJ ' + str(Gr.OBJ()) )
+
+#                print >> f, 'Estim',Estim
+                if Task.print_res != None :
+                    Task.print_res(Task, Penal, f)
+    return Estim
+
 
 def plotOptim (task): #kfe_added - отображение "оптимизации"
     import matplotlib.pyplot as plt 
@@ -467,3 +648,4 @@ def plotOptim (task): #kfe_added - отображение "оптимизаци�
                             bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
             
         plt.savefig(f'optPlot{i}.png')
+

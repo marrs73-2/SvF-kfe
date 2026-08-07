@@ -7,23 +7,24 @@ from copy   import *
 import pyomo.environ as py
 
 from SolverTools import Factory #*
-from CVSets  import *
-from GaKru   import *
-from Pars    import *
-from Tools   import *
-#from Task    import Grd_to_Var
-from Task    import Var_to_Grd, FillNaNAll, setUse_var
-from ModelFiles import to_logOut
 
-from spotoptim import SpotOptim
-from spotoptim.plot.visualization import plot_progress, plot_surrogate
-from spotoptim.sampling.design import generate_qmc_lhs_design
-import matplotlib.pyplot as plt
-
-from SolverTools import *
-import Compare
 import COMMON as co
 
+
+#   for index, string in enumerate(strings):
+#   np.linspace(0, 2, 9)  # 9 ����� �� 0 �� 2 ������������
+
+# ������������� ��������� 2 ������� pol ( C, B1, B2) 
+# 1) ��������� ��������� - ���������� ��� �����  B1i, B2i, SIGi
+# 2) ��������� �������� ���������������� ������������ 2-��� �������:
+#    - ����� ����������� � ������� ������ (��� ������ ����� �� �������� ��������, ��� ������ ���)
+#    - ����������� ����� �� �������� ����������� (�� �������� ������������� ��� ������������ ������),
+#      �������� �������� ����������� ���, ����� ������� �� �������� � ���������� ����� ��� ������ ��������.
+# 3) ����������� ����� �������� B1 � B2, ��� ��� ����������� SIG. ����������� �� ��� 2.
+# ����� �� ���-�� �������� ��� �� �������� ���� (���������� �����)
+# ����� �   (sum ( (pol ( C, B1i, B2i) - SIGi))**2/ri**(2+q) i in range(I)) + ??? (C20+C02+C11)*reg => min
+#  ��� ri = sqrt ()
+#
 
 coprintL = 0    # ����� ���������� �� ������
 #from pyomo.opt import SolverFactory
@@ -116,20 +117,18 @@ def distance ( p1, p2 ) :
 
 
 class Point :                 # 
-    def __init__ ( self, Arg, Val=0, Num=0, initial=False) :     # 
+    def __init__ ( self, Arg, Val=0, Num=0 ) :     # 
         self.Arg  = Arg.copy()
         self.Val  = Val
         self.Num  = Num
         self.wieght = 0
-        # whether a point was in initial set
-        self.initial = initial 
       
     def prin(self) :
-        print ('Num', self.Num, 'Val', self.Val, 'Arg', self.Arg, "Is initial ", self.initial)
+        print ('Num', self.Num, 'Val', self.Val, 'Arg', self.Arg)
 
 
-def AddPoint ( points, Arg, Val, initial=False) :
-    poi = Point ( Arg, Val, len(points), initial)
+def AddPoint ( points, Arg, Val ) :
+    poi = Point ( Arg, Val, len(points) )
     grad = (Val - points[-1].Val) / distance (poi, points[-1])
     points.append ( poi )
     if points[-2].Val < points[-1].Val :    # swap
@@ -249,67 +248,67 @@ maxpartPen = .001
 minpartPen = 1e-5
 
 def arrange_farWieght_curvPenal (opt, points, curvPenal, farWieght, Val, nArg) :
-#       print "sAR", '  ', farWieght, curvPenal
-    dim = len (nArg)
-    for n in range(100) :                    # �������� partPen � �������
-        pol, partWeight, partPen = CulcCoef (opt, points, curvPenal, farWieght)
-        if   partWeight > maxpartPen :  farWieght *= 1.07
-        elif partWeight < minpartPen :  farWieght /= 1.07
-        else                         : break
+ #       print "sAR", '  ', farWieght, curvPenal
+        dim = len (nArg)
+        for n in range(100) :                    # �������� partPen � �������
+            pol, partWeight, partPen = CulcCoef (opt, points, curvPenal, farWieght)
+            if   partWeight > maxpartPen :  farWieght *= 1.07
+            elif partWeight < minpartPen :  farWieght /= 1.07
+            else                         : break
 #            print 'QQQQQQQQQQQQQQ', n, farWieght, 'pW', partWeight
-    prognVal = pol.CulcShift (nArg, points[-1])
-    print ("+AR", '**', farWieght, 'pW', partWeight, curvPenal, partPen, (Val-prognVal), )
-    
-    farWieghtN = farWieght * 1.001
-    pol, partWeight, partPen = CulcCoef (opt, points, curvPenal, farWieghtN)
-    prognValN = pol.CulcShift (nArg, points[-1])
-    dW = (prognValN-prognVal)/0.001
+        prognVal = pol.CulcShift (nArg, points[-1])
+        print ("+AR", '**', farWieght, 'pW', partWeight, curvPenal, partPen, (Val-prognVal), )
+        
+        farWieghtN = farWieght * 1.001
+        pol, partWeight, partPen = CulcCoef (opt, points, curvPenal, farWieghtN)
+        prognValN = pol.CulcShift (nArg, points[-1])
+        dW = (prognValN-prognVal)/0.001
 
-    curvPenalN = curvPenal * 1.001
-    pol, partWeight, partPen = CulcCoef (opt, points, curvPenalN, farWieght)
-    prognValN = pol.CulcShift (nArg, points[-1])
-    dP = (prognValN-prognVal)/0.001
+        curvPenalN = curvPenal * 1.001
+        pol, partWeight, partPen = CulcCoef (opt, points, curvPenalN, farWieght)
+        prognValN = pol.CulcShift (nArg, points[-1])
+        dP = (prognValN-prognVal)/0.001
 
-    if dW==0 :  return farWieght, curvPenal
+        if dW==0 :  return farWieght, curvPenal
 
-    delteVal = Val-prognVal    #  > 0 ���� ������� ����
+        delteVal = Val-prognVal    #  > 0 ���� ������� ����
 #        ad = 0.03
-    ad = 0.05
-    if abs (dP) <= abs(dW) :  addW = ad; addP = ad* abs(dP/dW)
-    else                   :  addP = ad; addW = ad* abs(dW/dP)
-    if dW * delteVal > 0 :  multW=1+addW
-    else                 :  multW=1-addW
-    if dP * delteVal > 0  : multP=1+addP
-    elif dP == 0          : multP=1
-    else                  : multP=1-addP
+        ad = 0.05
+        if abs (dP) <= abs(dW) :  addW = ad; addP = ad* abs(dP/dW)
+        else                   :  addP = ad; addW = ad* abs(dW/dP)
+        if dW * delteVal > 0 :  multW=1+addW
+        else                 :  multW=1-addW
+        if dP * delteVal > 0  : multP=1+addP
+        elif dP == 0          : multP=1
+        else                  : multP=1-addP
 
-    print ('dW', dW, multW, 'dP', dP, multP, delteVal)
+        print ('dW', dW, multW, 'dP', dP, multP, delteVal)
 
 #        for n in range (100) :
 #        for n in range (50) :
-    for n in range (25) :
-        farWieghtN = farWieght * multW
-        curvPenalN = curvPenal * multP
-        pol, partWeight, partPen = CulcCoef (opt, points, curvPenalN, farWieghtN)
-        if multW > 1 and partWeight < minpartPen : break                    #  ����� �� ������� �������
-        if multW < 1 and partWeight > maxpartPen : break                    #  ����� �� ����������� �������
-        prognValN = pol.CulcShift (nArg, points[-1])
-        if delteVal > 0 :
-            if prognValN >= Val : break         #  �������������
-            elif prognValN <= prognVal : break  #  ������� ���������
+        for n in range (25) :
+            farWieghtN = farWieght * multW
+            curvPenalN = curvPenal * multP
+            pol, partWeight, partPen = CulcCoef (opt, points, curvPenalN, farWieghtN)
+            if multW > 1 and partWeight < minpartPen : break                    #  ����� �� ������� �������
+            if multW < 1 and partWeight > maxpartPen : break                    #  ����� �� ����������� �������
+            prognValN = pol.CulcShift (nArg, points[-1])
+            if delteVal > 0 :
+                if prognValN >= Val : break         #  �������������
+                elif prognValN <= prognVal : break  #  ������� ���������
+                else :
+                    prognVal  = prognValN
+                    curvPenal = curvPenalN
+                    farWieght = farWieghtN
             else :
-                prognVal  = prognValN
-                curvPenal = curvPenalN
-                farWieght = farWieghtN
-        else :
-            if prognValN <= Val : break         #  �������������
-            elif prognValN >= prognVal : break  #  ������� ���������
-            else :
-                prognVal  = prognValN
-                curvPenal = curvPenalN
-                farWieght = farWieghtN
-    print ("+AR", n, farWieght, 'pW', partWeight, curvPenal, partPen, (Val-prognVal))
-    return farWieght, curvPenal
+                if prognValN <= Val : break         #  �������������
+                elif prognValN >= prognVal : break  #  ������� ���������
+                else :
+                    prognVal  = prognValN
+                    curvPenal = curvPenalN
+                    farWieght = farWieghtN
+        print ("+AR", n, farWieght, 'pW', partWeight, curvPenal, partPen, (Val-prognVal))
+        return farWieght, curvPenal
 
 
 def condition ( points, farWieght, opt ) :
@@ -340,269 +339,91 @@ def condition ( points, farWieght, opt ) :
 #    return obus, [M.plane[c]() for c in range(dim+1)]
     return obus, np.array([M.plane[c]() for c in range(dim)])
 
-
-def SetAllArgs (inArg, arg, stepsIN ) :
+def SetAllArgs (Arg, InArg, stepsIN ) :
     a_in = 0
     for iss,s in enumerate (stepsIN) :
         if s != 0:
-            arg[iss] = inArg[a_in]
+            InArg[iss] = Arg[a_in]
             a_in += 1
-    return arg
-
-
-init_x_to_y_dict = None
-
-
-def evaluate_initial_points(CVNumOfIter, inArg, steps, getVal, dim, iter=None, bounds=None):
-    """
-
-    """
-    print(f"Initial points are being evaluated, InitialPoints is {co.Initial_points}")
-    step = 0.1
-    points = []
-
-    # Use old Sokolov's algorithm for picking initial points if chosen
-    if co.Initial_points.lower() == "Old".lower():
-        print("Old algorithm for picking initial points is chosen")
-        par_der = []   # deriv
-
-        for itera in range (min(dim+1, CVNumOfIter)) :
-            print(f"Started iteration {itera} of SurMinMethod with CVNumOfIter={CVNumOfIter}, dim={dim}")
-            if itera == 0 :
-                allArgs = SetAllArgs(inArg, co.Penalty, co.OptStep)
-                Val = getVal(allArgs, iter)
-                print ('\nITER', itera, 'start', Val, 'st', np.nan,  inArg, '\n')
-                points = [Point (inArg, Val, Num=0, initial=True)]
-
-            elif itera <= dim :
-                nArg = inArg.copy()
-                step_i = steps[itera-1]
-                Nattempt = 2
-                for attempt in range (Nattempt) :
-                    nArg[itera-1] += step_i
-                    AllArgs = SetAllArgs(nArg, co.Penalty, co.OptStep)
-                    Val = getVal(AllArgs, iter)
-                    Arg, mi, grad = AddPoint ( points, nArg, Val, initial=True)
-                    print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
-                    if mi != '***' : break
-                    if attempt != Nattempt-1 :
-                        nArg[itera - 1] -= step_i
-                        if attempt == 0 :  step_i = - step_i
-                        else            :  step_i *= -0.05
-                steps[itera - 1] = step_i                           # 24.05
-                par_der.append(grad*np.sign(step_i))
-                if (itera == dim) :
-                    min_step = min([abs(steps[ipd] / pd) for ipd, pd in enumerate(par_der)])
-                    step = np.sqrt(sum((pd * min_step) ** 2 for pd in par_der))
-                    print('par_der', par_der, 'min_step', min_step, step)
-
-    # Extract already evaluated set of initial points from a .res file if chosen               
-    elif co.Initial_points.strip()[-4:] == ".res":
-        print(f"Initial points are extracted from {co.Initial_points}")
-        mode, res_file = (x.strip() for x in co.Initial_points.strip().split(":"))
-
-        if mode.lower() == "initial":
-            iterations, vals, args, initial_count = Compare.get_points(res_file, only_initial=True)
-        elif mode.lower() == "all":
-            iterations, vals, args, initial_count = Compare.get_points(res_file, only_initial=False)
-
-        for iteration in range(len(vals)):
-            args_to_append = np.array([])
-            for n, arg in enumerate(args[iteration]):
-                 if co.OptStep[n] != 0:
-                    args_to_append = np.append(args_to_append, arg)
-
-            if iteration < initial_count:
-                points.append(Point(args_to_append, vals[iteration], iteration, initial=True))
-            else:
-                points.append(Point(args_to_append, vals[iteration], iteration, initial=False))
-    
-    # Use uniform distribution from spotoptim
-    elif (co.Initial_points.strip().lower().startswith("qms_lhs") == True or 
-          co.Initial_points.strip().lower().startswith("qms-lhs") == True) and bounds is not None:
-        _, points_number = co.Initial_points.strip().lower().split(":")
-        points_number = int(points_number)
-        X = generate_qmc_lhs_design(bounds, n_design=points_number, seed=0)
-
-        for i in range(X.shape[0]):
-            val = getVal(X[i], iter)
-            points.append(Point(X[i], val, i, initial=True))
-
-    # Wrong option chosen
-    else: 
-        print(f"Wrong SvF.InitialPoints option: {co.Initial_points}")
-        raise ValueError("Wrong SvF.InitialPoints option")
-
-    print(f"Args of initial points: ", [p.Arg for p in points])
-    print(f"Vals of initial points: ", [p.Val for p in points])
-    return points, step
-         
-
-def SurMinMethod ( CVNumOfIter, inArg, steps, getVal, Task=None) :
-    """
-    Method does surrogate optimization based on spotoptim module's toolkit. 
-    Initial design is yet an initial point with several others formed with a little shift (0.05)
-    Main optimization loop is entirely spotoptim's optimizer.
-
-    Args:
-        CVNumOfIter (int): maximum number of performed iterations in optimization process.
-        stepsIN - initial optimization steps. If any is set to 0 then the according coefficient isn't optimized.
-        InArg - Initial value of regularization parameters 
-        getVal (function): link to an evaluation method which serves as a blackbox and provides values 
-            for the upper level of surrogate optimization.
-        Task (Task object): link to a SvF Task object to which calculations belong. 
-
-    Returns:
-        list[SvF Point objects]: list of all points calculated throughout optimization
-    """
-
-    global init_x_to_y_dict
-    init_x_to_y_dict = dict()
-
-    dim = len (inArg)
-    print(f"co.Penalty = {co.Penalty}")
-    # Immediately calculate and return value from one initial point if iterations are 0
-    if CVNumOfIter == 0:
-            #AllArgs = SetAllArgs(inArg, co.Penalty, co.OptStep)
-            Val = getVal (inArg)
-            points = [Point (inArg, Val, Num=0, initial=True)]
-            for p in points:  p.prin()
-            return points, nan
-
-    # Bounds for each optimization parameter. Should be changed sometimes according to problem's specifics. 
-    # regularization parameters too low or too high (relatively) can result in solver error.
-    bounds =  [[co.Low_bound, co.High_bound] for _ in range(dim)]
-    
-    # Evaluate set of initial points for optimization
-    points, _ = evaluate_initial_points(CVNumOfIter, inArg, steps, getVal, dim, bounds=bounds)
-
-    # Update of cached initial points in the global dictionary.
-    init_x_to_y_dict.clear()
-    init_x_to_y_dict.update({
-        tuple(np.asarray(p.Arg).flatten()): float(p.Val)
-        for p in points
-    })
-    
-    print(f"dim = {dim}, CVNumOfIter = {CVNumOfIter}, len(points) = {len(points)}")
-
-    # Count number of initial points
-    initial_n = len(points) 
-
-    # Main optimization loop with spotoptim
-    if CVNumOfIter > dim:
-        # Output of optimization parameters
-        # print(f"Args of initial points: ", [p.Arg for p in points])
-        # print(f"Vals of initial points: ", [p.Val for p in points])
-        print(f"MAIN OPTIMIZATION LOOP HAS STARTED WITH SPOTOPTIM")
-        print(f"Acquisition mode is set to {co.Acquisition_mode}")
-        print(f"Low and high bounds for each dimension are [{co.Low_bound},{co.High_bound}]")
-
-        # Numpy array of custom initial points for optimizer
-        X_init = np.array([np.asarray(point.Arg).flatten()
-                            for point in points]) 
-
-        # Define spotoptim optimizer
-        opt = SpotOptim(
-            fun=getVal,
-            bounds=bounds,
-            acquisition=co.Acquisition_mode,
-            max_iter=CVNumOfIter, # Вероятно стоит поменять принцип подсчёта итераций (!!!)
-            n_initial=0,
-            selection_method='distant',
-            n_jobs=1,
-            verbose=True,
-            tensorboard_log=False,
-            tensorboard_clean=True
-        )
-
-        # Run optimization
-        result = opt.optimize(X0=X_init)
-        print(f"points = {points}, result.X = {result.X}, result.y = {result.y}")
-
-        # Add points evaluated in optimization to an array of initial points
-        new_points = points + [Point(result.X[i], result.y[i], i, initial=False) for i in range(initial_n, result.X.shape[0])]
-        print(f"Args of result points: ", [p.Arg for p in new_points])
-        print(f"Vals of result points: ", [p.Val for p in new_points])
-
-        # Save all points in Task object for custom plots
-        Task.OptPoints = new_points
-
-        # show graphs from spotoptim or save them in files
-        ShowGraphs = co.Show_spotoptim_graphs
-
-        # Plot and save graph of CV error from number of optimizer iterations
-        plot_progress(opt, show=ShowGraphs)
-        plt.savefig("Surrogate_CVError_to_iter.png", dpi=200)
-        plt.close()
-
-        # For two regularization coefficients plot spotoptim 2D graph of the surrogate surface and prediction certainty 
-        if dim == 2: 
-            plot_surrogate(opt, show=ShowGraphs)
-            plt.savefig("Surrogate_2D_surface.png", dpi=200)
-            plt.close()
-
-
-        points = new_points
-
-    return points
+    return InArg
 
 
 
-def SurMinOld ( CVNumOfIter, inArg, steps, exitStep, getVal, Task=None) :
-    """
-    Old self-written version of optimization process by Sokolov.
-    Left currently for comparison. Changes were only made in the forms of:
-    1) Addition of initial flag to points
-    2) Tiny name changes
-    3) Evaluation of initial points was moved to a separate method (the same as for new SurMinMethod)
-    4) inArg in parameters is already a cut form of co.Penalty now without unoptimized coeffitients. So 
-    SetAllArgs isnt' needed here and was transferred to getVal function. 
-    """
+
+def SurMin ( CVNumOfIter, stepsIN, ExitStep, InArg, getVal, Task=None) :
     old_points = []
     old_cCos = []
     old_stepMult = 1
+    par_der = []   # deriv
     firstDerec = True
+#    opt = LittleFactory ( None, 10000, 1e-9 )  # ����� ����������
 
     opt = Factory (None, co.SolverNameHigh)  # ����� ����������
-    dim = len(steps)
+
+    Arg = []
+    steps = []
+    for ia, a in enumerate(InArg) :
+        if stepsIN[ia] != 0 :
+            Arg.append(a)
+            steps.append(stepsIN[ia])
+    Arg = np.array (Arg)
+    dim = len (Arg)
 
     curvPenal = 0.001
     print ("len", len (steps) )
     if len (steps)==0 : farWieght = 1   #  ��� ����������
     else:               farWieght = 2/dim/abs(steps[0])
-
+    #  exp ( - farWieght * dist...
     print ('\nstart  farWieght', farWieght)
     step = 1e37
     if CVNumOfIter == 0:
-            Val = getVal (inArg, -1 )
-            points = [Point (inArg, Val, 0, initial=True)]
+            AllArgs = SetAllArgs(Arg, InArg, stepsIN)
+            Val = getVal ( AllArgs, -1 )
+            points = [Point (Arg, Val, 0)]
             for p in points:  p.prin()
             return points, nan
 
-
-    # Bounds for each optimization parameter. Should be changed sometimes according to problem's specifics. 
-    # regularization parameters too low or too high (relatively) can result in solver error.
-    bounds =  [[co.Low_bound, co.High_bound] for _ in range(dim)]
-
-
-    # Evaluate set of initial points for optimization
-    points, step = evaluate_initial_points(CVNumOfIter, inArg, steps, getVal, dim, iter=0, bounds=bounds)
-    print(f"MAIN OPTIMIZATION LOOP HAS STARTED WITH OLD OPTIM. MODE")
-    print(f"Initial step is {step}")
-
-    initial_points_len = len(points)
     for itera in range (CVNumOfIter) :
-        print(f"itera = {itera}, CVNumOfIter = {CVNumOfIter}")
-        if itera <= initial_points_len:
-            pass
+        if itera == 0 :
+            AllArgs = SetAllArgs(Arg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( Arg, itera )
+            print ('\nITER', itera, 'start', Val, 'st', np.nan,  Arg, '\n')
+            points = [Point (Arg, Val, 0)]
 
-        elif firstDerec : 
-            print("FirstDerec is still True")
+        elif itera <= dim :
+            nArg = Arg.copy()
+#            if stepIN > 0 : stepp = stepIN
+ #           else          : stepp = Arg[itera-1] * (-stepIN)
+            step_i = steps[itera-1]
+            Nattempt = 5
+            for attempt in range (Nattempt) :
+                nArg[itera-1] += step_i
+                AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+                Val = getVal(AllArgs, itera)
+#                Val = getVal ( nArg, itera )
+                Arg, mi, grad = AddPoint ( points, nArg, Val )
+                print ('\nITER', itera, mi, Val, grad, 'st', step_i, nArg, '\n')
+                if mi != '***' : break
+                if attempt != Nattempt-1 :
+                    nArg[itera - 1] -= step_i
+                    if attempt == 0 :  step_i = - step_i
+                    else            :  step_i *= -0.05
+            steps[itera - 1] = step_i                           # 24.05
+            par_der.append(grad*np.sign(step_i))
+            if (itera == dim) :
+                min_step = min([abs(steps[ipd] / pd) for ipd, pd in enumerate(par_der)])
+                step = np.sqrt(sum((pd * min_step) ** 2 for pd in par_der))
+                print('par_der', par_der, 'min_step', min_step, step)
+#           step = min (step, abs(step_i))
+        elif firstDerec :   #itera == dim + 1 :
             pol, tmp, tmp1 = CulcCoef (opt, points, curvPenal, farWieght)                              # CulcCoef
             if coprintL: print ('coef', pol.coef[:dim+1], '\n    ', pol.coef[dim+1:])
             old_coef = deepcopy (pol.coef)                                                  # ��� ���������� ���� ��������
             prognVal, nArg, Constr, nIncr = Prognose ( opt, pol, points[-1], abs (step) )        # Prognose
-            Val = getVal (nArg, itera)                                                  # getVal
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
             prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
             Arg, mi, grad = AddPoint ( points, nArg, Val )                                     #  AddPoint
             print ('\nITER', itera, Constr, mi, 'grd', grad, 'Er', prognErr, 'st', step, 'Pr',
@@ -685,7 +506,7 @@ def SurMinOld ( CVNumOfIter, inArg, steps, exitStep, getVal, Task=None) :
                     mnArg = nArg - cCos*step*malt                                  #  ��� � ������� -
                     mprognValN = pol.CulcShift (mnArg, points[-1])                  #    ����� ��� ������
                     if mprognValN < prognValN :
-                        prognValN = mprognValN 
+                        prognValN = mprognValN
                         nnArg     = mnArg
                         si = '-'
                     else : si = '+'   
@@ -696,7 +517,9 @@ def SurMinOld ( CVNumOfIter, inArg, steps, exitStep, getVal, Task=None) :
 #                nArg = np.array(nnArg)
                 prognVal = prognValN
             
-            Val = getVal (nArg, itera )                          
+            AllArgs = SetAllArgs(nArg, InArg, stepsIN)
+            Val = getVal ( AllArgs, itera )
+#            Val = getVal ( nArg, itera )                                                        # getVal
             print ('\t\t\topEr', prognErr, 'ang', ang_pov, 'ost', ostep, 'st',step, stepMult)
             prognErr = abs (Val-prognVal)/(points[-1].Val-prognVal)         # ����������� ��������:  0 - �������
             old_points = deepcopy (points)
@@ -705,11 +528,11 @@ def SurMinOld ( CVNumOfIter, inArg, steps, exitStep, getVal, Task=None) :
 
             print ('\nITER',itera, Constr, mi, 'grd',grad, 'pEr',prognErr, 'P', prognVal, Val, \
                   '\n\t', nArg, 'delta', delta, '\n')
-            if distance ( points[-2], points[-1] ) < exitStep:
+            if distance ( points[-2], points[-1] ) < ExitStep:
                 print ('***************  ExitIncr')
                 break       
-        if abs(step) < exitStep:
-            print ('***************  ExitStep', abs(step), '<', exitStep)
+        if abs(step) < ExitStep:
+            print ('***************  ExitStep', abs(step), '<', ExitStep)
             break       
 
     for p in points :  p.prin()
@@ -717,3 +540,4 @@ def SurMinOld ( CVNumOfIter, inArg, steps, exitStep, getVal, Task=None) :
     Task.OptPoints = points #kfe_added
 
     return points, step
+

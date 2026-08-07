@@ -155,11 +155,11 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
             SvF.jobId_s.append(jobId)
 #            theSession.deleteWorkFiles([".nl", ".sol", ".zip", ".plan"])
 
-        # Delete jobs created to save disk space at Everest server , MAY BE
-   #     if args.cleanjobs:
-#            theSession.deleteAllJobs()
+            # Delete jobs created to save disk space at Everest server , MAY BE
+            if SvF.DeleteServerJobs:
+                theSession.deleteAllJobs()
 
-        # CLOSE THE SESSION !!! MUST BE
+            # CLOSE THE SESSION !!! MUST BE
             theSession.session.close()
         elif RunMo == 'P':  ###################################
             with concurrent.futures.ThreadPoolExecutor(max_workers=SvF.max_workers) as executor:
@@ -200,7 +200,7 @@ def  solveProblemsNl( Gr, SetNum, RunMo = 'L' ):   #  'L' - Local, 'N'- Nl local
             resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             setMuToTeach_k(SetNum)
             #makeNlFile(Gr, SvF.tmpFileDir + "/" + SvF.TaskName + "local" + '0' + ".nl") #kfe_changed
-            results = SvF.optFact.solve(Gr, tee=False)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            results = SvF.optFact.solve(Gr, tee=True)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             # print(f"Solver status: {results.solver.status}")
             # print(f"Termination condition: {results.solver.termination_condition}")
     

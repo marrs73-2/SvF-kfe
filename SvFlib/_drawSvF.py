@@ -22,7 +22,7 @@ sys.path.append( path_Everest_python_api )
 import COMMON as SvF
 SvF.path_SvF   = path_SvF
 SvF.tmpFileDir = path_SvF + 'TMP/'
-SvF.token      = path_Everest_python_api +'/.token'
+#SvF.token      = path_Everest_python_api +'/.token'
 import Task as ta
 SvF.Task = ta.TaskClass ()
 
