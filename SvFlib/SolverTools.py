@@ -203,7 +203,7 @@ def  solveProblemsNl( Gr, SetNum, RunMo = 'L' ):   #  'L' - Local, 'N'- Nl local
             resultss = []                                   #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             setMuToTeach_k(SetNum)
             #makeNlFile(Gr, SvF.tmpFileDir + "/" + SvF.TaskName + "local" + '0' + ".nl") #kfe_changed
-            results = SvF.optFact.solve(Gr, tee=True)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
+            results = SvF.optFact.solve(Gr, tee=False)  # tee=True)   keepfiles=True)  #!!  ТОЛЬКО ДЛЯ ОДНОГО resultss
             # print(f"Solver status: {results.solver.status}")
             # print(f"Termination condition: {results.solver.termination_condition}")
     

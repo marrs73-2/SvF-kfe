@@ -14,7 +14,7 @@ optFact = None # созданный солвер для решения зада�
 # Словари для связки конфигураций солверов с их названиями
 ipopt_config = {  "linear_solver"              : 'ma97'\
                  , 'max_iter'                   : 50000 \
-                 , "print_level"                : 4     \
+                 , "print_level"                : 0     \
                  , 'warm_start_init_point'      : 'yes' \
                  , 'warm_start_bound_push'      : 1e-6 \
                  , 'warm_start_mult_bound_push' : 1e-6 \
