@@ -119,6 +119,7 @@ def compare_results():
 
     # define colors for each graph
     color_list = []
+    print("!!!!!!!!!!!!!!!!!", co.ResGraphColors)
     if co.ResGraphColors != []:
         color_list = co.ResGraphColors
         color_list = color_list.strip().strip('[]').split(',')
@@ -128,8 +129,24 @@ def compare_results():
             print("Error in choosing colors for comparison graph")
             color_list = []
     if color_list == []:
-        default_colormap = plt.cm.tab10
+        #default_colormap = plt.cm.tab10
+        default_colormap = plt.get_cmap('tab10')
+        
         color_list = [default_colormap(i % default_colormap.N) for i in range(len(target_res_files))]
+
+
+    # define labels for each graph
+    label_list = []
+    if co.ResLegendNames != []:
+        label_list = co.ResLegendNames
+        label_list = label_list.strip().strip('[]').split(',')
+        label_list = [label_name.strip().strip('"\'') for label_name in label_list]
+        
+        if len(color_list) != len(target_res_files):
+            print("Error in choosing labels for comparison graph")
+            label_list = []
+    if label_list == []:
+        label_list = [target_res_files[i] for i in range(len(target_res_files))]
 
     print(f"Target res files = {target_res_files}")
     print(f"co.Tail_start = {co.Tail_start}")
@@ -158,7 +175,7 @@ def compare_results():
                 vals[0:initial_count],
                 alpha=0.6,
                 s=50,
-                label=f"Initial design (n={initial_count})",
+                label=f"Начальные точки (n={initial_count})",
                 color="gray",
                 edgecolors="black",
                 linewidth=0.5,
@@ -177,7 +194,7 @@ def compare_results():
             x_best,
             y_best,
             linewidth=2,
-            label=res_file,
+            label=label_list[i],
             color=color_list[i]
         )
 
@@ -186,21 +203,21 @@ def compare_results():
                 x_best[tail_start - initial_count:],
                 y_best[tail_start - initial_count:],
                 linewidth=2,
-                label=res_file,
+                label=label_list[i],
                 color=color_list[i]
             )
 
-    ax1.set_xlabel("Iteration", fontsize=11)
-    ax1.set_ylabel("CVError", fontsize=11)
-    ax2.set_xlabel("Iteration", fontsize=11)
-    ax2.set_ylabel("CVError", fontsize=11)
+    ax1.set_xlabel("Номер итерации", fontsize=11)
+    ax1.set_ylabel("Ошибка кросс-валидации", fontsize=11)
+    ax2.set_xlabel("Номер итерации", fontsize=11)
+    ax2.set_ylabel("Ошибка кросс-валидации", fontsize=11)
     ax1.ticklabel_format(style='plain', useOffset=False, axis='both')
     ax2.ticklabel_format(style='plain', useOffset=False, axis='both')
 
-    title1 = "Optimization Progress"
+    title1 = "Прогресс оптимизации"
     ax1.set_title(title1, fontsize=12)
 
-    title2 = "Tail of Optimization Progress"
+    title2 = "Хвост прогресса оптимизации"
     ax2.set_title(title2, fontsize=12)
 
     ax1.legend(fontsize=10)
@@ -208,7 +225,20 @@ def compare_results():
     # ax1.yscale("log")
     ax1.grid(True, alpha=0.3)
     ax2.grid(True, alpha=0.3)
-    plt.savefig("Comparison_of_optimization_strategies.png")
 
+    # plt.savefig('Comparison_of_optimization_strategies.pdf', format='eps', bbox_inches='tight')
+    # plt.savefig('Osc-2.tiff', 
+    #         format='tiff', 
+    #         dpi=300, 
+    #         bbox_inches='tight',
+    #         pil_kwargs={'compression': 'jpeg'}) 
+
+    plt.savefig('E-2.pdf', 
+            format='pdf', 
+            bbox_inches='tight',   
+            dpi=300,              
+            facecolor='white',     
+            edgecolor='none')    
+    # plt.savefig('Comparison_of_optimization_strategies.tiff', dpi=300, format='tiff', bbox_inches='tight')
     plt.tight_layout()
     plt.show()

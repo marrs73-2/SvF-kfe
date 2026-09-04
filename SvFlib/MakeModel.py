@@ -116,6 +116,7 @@ def WriteCV(buf):
 def WriteCompare(buf):
     keys = [['ResFilesToCompare',    'ResFilesToCompare',         None],
             ['ResGraphColors',      'ResGraphColors',           None],
+            ['ResLegendNames',      'ResLegendNames',           None],
             ['TailStart',      'Tail_start',           None]
             ]
 

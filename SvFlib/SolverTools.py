@@ -22,13 +22,12 @@ from ssop_session import *
 def Factory (optFile, solverName):
     opt = None
     if optFile is None or SvF.RunMode[0] == 'L' or SvF.RunMode[2] == 'L' :
-        opt = SolverFactory(SvF.SolverScripts[solverName])  #'server' :  SvF.LocalSolverName
+        opt = SolverFactory(SvF.SolverScripts[solverName]) 
         opt.options.update(SvF.SolverConfigSettings[solverName])
         # opt = SolverFactory(CONF.LocalSolverName)  #'server' :  SvF.LocalSolverName
         # opt.options.update( SvF.solverOptVal )
     if (not optFile is None) and \
         (SvF.RunMode[0] != 'L' or SvF.RunMode[2] != 'L'):
-        #makeSolverOptionsFile(SvF.tmpFileDir + '/' + optFile, SvF.SolverRealName, SvF.solverOptVal)
         makeSolverOptionsFile(SvF.tmpFileDir + '/' + SvF.SolverConfigFileNames[solverName],
                                solverName, SvF.SolverConfigSettings[solverName])
     return opt
@@ -131,7 +130,7 @@ def solveNlFileS ( sym_maps, __peProblems, tmpFileDir, RunMo ) :
             SvF_resources = []                                                  #####   ABC   28/01/2023
             for r in SvF.Resources:
                 SvF_resources.append(ssop_config.SSOP_RESOURCES[r])
-            theSession = SsopSession(name      = SvF.TaskName + str(SvF.CV_Iter),
+            theSession = SsopSession(name      = SvF.TaskName + str(SvF.NoFuncCalls),
                                      token     = CONF.token,
                                      resources = SvF_resources,
 

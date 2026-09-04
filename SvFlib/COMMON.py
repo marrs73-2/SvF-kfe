@@ -1,15 +1,14 @@
 # -*- coding: UTF-8 -*-
 from sys  import float_info
+from SvFconf import path_to_ipopt, path_to_scip
 #from Object import *   #################################  НИ КАКОГО  ИМПОРТА!
 
 F_Arg_Type = ''            #  заплатка для ArgNorm для fNi_fon(X,Y) символ функции   Ni(X,Y)  = Ni_fon(X,Y) + fon
 
-
-DrawMode = 'File'
 # Установка солверов для обоих уровней основной суррогатной оптимизации раздельно
 SolverNameHigh = "ipopt"
 SolverNameLow = "ipopt"
-SolverScripts = {'ipopt':'docker-ipopt.sh', 'scip':'docker-scip.sh'}
+SolverScripts = {'ipopt':path_to_ipopt, 'scip':path_to_scip}
 optFact = None # созданный солвер для решения задач низкого уровня
 
 # Словари для связки конфигураций солверов с их названиями
@@ -132,6 +131,8 @@ graphic_file_type = 'png'
 #SaveSet    = 'N'
 
 optEstim = float_info.max
+optOBJ = None       
+SurMinMethodName = 'SvF'
 
 SchemeD1  = ['Forward'] # 'Backward'  #'Central'  #
 #SchemeD1  = ['Backward']  #'Central'
@@ -153,12 +154,12 @@ OptStep      = '0.01'
 CoeffPower = 4
 
 # spotoptim optimization parameters
-Use_spotoptim = True
+Use_spotoptim = False
 Acquisition_mode = "y"
 Low_bound = 1.e-4
 High_bound = 10
 Show_spotoptim_graphs=False
-Initial_points = "Old"
+Initial_points = "qms-lhs:20"
 
 mngF = ''
 
@@ -166,6 +167,7 @@ resF = ''    #      #resF = None - not read Penalty; resF = '' - make resF copy 
 ResAux = ''
 ResFilesToCompare = []
 ResGraphColors = []
+ResLegendNames = []
 Tail_start = []
 Penalty      =  []
 OptNames = []
@@ -173,7 +175,7 @@ OptNames = []
 
 #CVproc       = ''
 CVNumOfIter  =   20
-CV_Iter  =   0
+NoFuncCalls =  0    # для имени nl файла и первой печать MSD
 
 currentTab  = None
 
